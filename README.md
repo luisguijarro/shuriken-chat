@@ -6,7 +6,8 @@
 
 <p align="center">
   El chat de tus directos flotando en tu escritorio.<br />
-  Una ventana ligera, sin bordes y transparente para el chat unificado de
+  Una ventana sin bordes y transparente que lee el chat de tus plataformas
+  (por ahora <b>Twitch</b>) o, como respaldo, el de
   <a href="https://socialstream.ninja">Social Stream Ninja</a>.
 </p>
 
@@ -16,24 +17,30 @@
 
 ---
 
-> **Estado:** en desarrollo (v0.2.0). Funciona igual que el dock de SSN en OBS. Falta validarlo con más sesiones reales.
+> **Estado:** en desarrollo (v0.3.0). Plataformas soportadas: **Twitch**. Próximas: Kick y YouTube.
 >
 > Shuriken Chat es un proyecto independiente y **no está afiliado** a Social Stream Ninja.
 
 ## ¿Para qué sirve?
 
-Si ya usas Social Stream Ninja (SSN) para tener el chat de Twitch, YouTube, Kick y otras plataformas en OBS, Shuriken Chat te muestra **ese mismo chat en tu escritorio**. Así puedes leerlo mientras juegas o trabajas sin abrir el navegador ni mirar OBS.
+Shuriken Chat muestra el chat de tus directos **en tu escritorio**, para leerlo mientras juegas o trabajas sin abrir el navegador ni mirar OBS. Tiene dos modos:
+
+- **Plataformas** (recomendado): la app lee el chat directamente. Solo escribes el nombre de tu canal: **sin cuenta, sin claves y sin configurar nada más**.
+  - **Twitch**: emotes del canal (incluidos los de suscriptor), **7TV, BTTV y FFZ** (también los que se superponen), insignias oficiales, colores de usuario, /me, respuestas, subs, raids y anuncios. Los mensajes borrados y los baneos desaparecen como en Twitch.
+- **Social Stream Ninja**: muestra tu dock de SSN tal cual. Útil como respaldo o para plataformas que aún no soporta la app.
+
+### Características
 
 - 🪟 **Sin bordes y transparente**: solo se ven los mensajes, que flotan sobre lo que tengas detrás.
 - 🖼️ **Marco a tu gusto**: margen alrededor del chat, borde con grosor y color, y esquinas redondeadas.
 - 🖱️ **Arrastra para moverla** y estira los bordes para cambiar su tamaño.
 - 📌 **Siempre visible** sobre las demás ventanas.
 - 🎨 **Configuras el aspecto en la propia app**, sin editar URLs a mano. Los cambios se ven en directo.
-- 📋 **Importas tu URL de SSN** pegándola: rellena todas las opciones automáticamente.
+- 📋 **Modo SSN: importas tu URL** pegándola y rellena todas las opciones automáticamente.
 - 👻 **Atravesar clics**: la ventana ignora el ratón para que puedas usar lo que hay debajo.
 - 🔍 **Zoom** independiente de la escala del chat.
 - 💾 **Recuerda** su tamaño, posición, zoom y ajustes.
-- 🔌 **Sin tocar SSN**: usa el mismo motor que OBS (Chromium), así que funciona con tu URL de siempre.
+- 🔌 **Modo SSN sin tocar SSN**: usa el mismo motor que OBS (Chromium), así que funciona con tu URL de siempre.
 - 🚫 **Nunca usa tu cámara ni tu micrófono**: están bloqueados para cualquier página.
 
 ## Instalación
@@ -55,11 +62,20 @@ Si ya usas Social Stream Ninja (SSN) para tener el chat de Twitch, YouTube, Kick
 
 ## Primeros pasos
 
+### Con Twitch
+
+1. Abre Shuriken Chat. La primera vez se abre la ventana **Apariencia**.
+2. En **Fuente del chat**, elige **Plataformas**.
+3. En **Twitch**, escribe el nombre de tu canal (o pega su URL) y pulsa **Añadir**. El chat aparece al momento.
+4. Ajusta el aspecto y pulsa **Guardar**.
+
+### Con Social Stream Ninja
+
 1. En Social Stream Ninja, copia la URL de tu **dock**. Es algo como:
    ```
    https://socialstream.ninja/dock.html?session=XXXXXXXX&ln=es&scale=0.5&bubble&darkmode…
    ```
-2. Abre Shuriken Chat. La primera vez se abre la ventana **Apariencia**.
+2. En **Apariencia → Fuente del chat**, elige **Social Stream Ninja**.
 3. Pega la URL en **Importar desde Social Stream Ninja**.
 4. Ajusta lo que quieras (verás los cambios en directo) y pulsa **Guardar**.
 5. Coloca la ventana donde prefieras y, si quieres que nada la mueva, activa **Bloquear posición y tamaño**.
@@ -89,8 +105,10 @@ Si ya usas Social Stream Ninja (SSN) para tener el chat de Twitch, YouTube, Kick
 
 | Sección | Opciones |
 |---|---|
-| Importar | Pega una URL de SSN y rellena el formulario |
-| Conexión | ID de sesión e idioma |
+| Fuente del chat | Plataformas (la app lee el chat) o Social Stream Ninja |
+| Twitch | Canales a seguir (puedes añadir varios) |
+| Importar *(SSN)* | Pega una URL de SSN y rellena el formulario |
+| Conexión *(SSN)* | ID de sesión e idioma |
 | Aspecto del chat | Escala del texto, margen lateral, modo oscuro, burbujas, brillo en el texto, colores aleatorios, difuminar mensajes antiguos, ocultar la barra de controles de SSN |
 | Marco de la ventana | Margen alrededor del chat (10 px por defecto), esquinas redondeadas, grosor, color y opacidad del borde |
 | Fondo y transparencia | Fondo totalmente transparente, o color de fondo (*chroma*) con su opacidad, y opacidad de toda la ventana |
@@ -220,11 +238,13 @@ npm run build:appimage    # solo AppImage
 shuriken-chat/
 ├── assets/                      Icono fuente (SVG) e iconos PNG/ICO
 ├── ui/                          Páginas locales (sin frameworks)
+│   ├── chat.html/.css/.js       Chat propio (modo Plataformas)
 │   ├── settings.html/.css/.js   Ventana de Apariencia
 │   └── welcome.html             Pantalla inicial sin sesión
 ├── src/
 │   ├── main.js                  Ventanas, menús, bandeja, IPC
 │   ├── config.js                Configuración y generación de la URL de SSN
+│   ├── sources/                 Conectores de plataformas (Twitch) y emotes/insignias
 │   ├── preload-chat.js          Script aislado de la ventana del chat
 │   └── preload-settings.js      Puente de la ventana de Apariencia
 ├── scripts/start.js             Lanzador de desarrollo (npm start)
@@ -241,7 +261,8 @@ shuriken-chat/
 
 ## Créditos
 
-- [Social Stream Ninja](https://github.com/steveseguin/social_stream), de Steve Seguin: el motor del chat unificado.
+- [Social Stream Ninja](https://github.com/steveseguin/social_stream), de Steve Seguin: la inspiración y el modo de respaldo.
+- [7TV](https://7tv.app), [BetterTTV](https://betterttv.com), [FrankerFaceZ](https://www.frankerfacez.com) e [IVR](https://api.ivr.fi): emotes e insignias.
 - [Electron](https://www.electronjs.org): el framework de la aplicación.
 
 ## Licencia

@@ -17,6 +17,25 @@
 
   <main>
     <section>
+      <h2>Fuente del chat</h2>
+      <div class="checks">
+        <label><input type="radio" name="mode" value="native" /> <span><b>Plataformas</b> — Shuriken Chat lee el chat directamente</span></label>
+        <label><input type="radio" name="mode" value="ssn" /> <span><b>Social Stream Ninja</b> — usa tu dock de SSN (respaldo de emergencia)</span></label>
+      </div>
+    </section>
+
+    <section class="native-only">
+      <h2>Twitch</h2>
+      <p class="muted">Escribe el nombre del canal (o pega su URL). No hace falta cuenta.</p>
+      <div class="row">
+        <input id="twitchInput" type="text" placeholder="nombre_del_canal" spellcheck="false" autocomplete="off" />
+        <button id="twitchAdd" type="button">Añadir</button>
+      </div>
+      <p id="twitchMsg" class="msg"></p>
+      <ul id="twitchList" class="chips"></ul>
+    </section>
+
+    <section class="ssn-only">
       <h2>Importar desde Social Stream Ninja</h2>
       <p class="muted">Pega la URL de tu dock (<code>dock.html?session=…</code>) y se rellenará todo automáticamente.</p>
       <div class="row">
@@ -26,7 +45,7 @@
       <p id="importMsg" class="msg"></p>
     </section>
 
-    <section>
+    <section class="ssn-only">
       <h2>Conexión</h2>
       <label class="field">
         <span>ID de sesión</span>
@@ -69,7 +88,7 @@
         <label><input id="textGlow" type="checkbox" /> Brillo en el texto</label>
         <label><input id="randomColor" type="checkbox" /> Colores aleatorios por usuario</label>
         <label><input id="fadedTop" type="checkbox" /> Difuminar mensajes antiguos (arriba)</label>
-        <label><input id="hideMenu" type="checkbox" /> Ocultar barra de controles de SSN</label>
+        <label class="ssn-only"><input id="hideMenu" type="checkbox" /> Ocultar barra de controles de SSN</label>
       </div>
     </section>
 
@@ -123,7 +142,7 @@
 
     <details>
       <summary>Avanzado</summary>
-      <label class="field">
+      <label class="field ssn-only">
         <span>Parámetros extra de SSN <small class="muted">(ej. <code>compact&amp;hidesource</code>)</small></span>
         <textarea id="extraParams" rows="2" spellcheck="false"></textarea>
       </label>
@@ -131,8 +150,8 @@
         <span>CSS personalizado <small class="muted">(se inyecta en la página del chat)</small></span>
         <textarea id="customCss" rows="6" spellcheck="false" placeholder=".message { font-family: 'Comic Neue'; }"></textarea>
       </label>
-      <label class="field">
-        <span>Página base</span>
+      <label class="field ssn-only">
+        <span>Página base de SSN</span>
         <input id="baseUrl" type="text" spellcheck="false" />
       </label>
       <h3>Sistema <small class="muted">(requiere reiniciar)</small></h3>
@@ -142,7 +161,7 @@
       </div>
     </details>
 
-    <section>
+    <section class="ssn-only">
       <h2>URL generada</h2>
       <div class="row">
         <input id="url" type="text" readonly spellcheck="false" />

@@ -1,0 +1,161 @@
+/* Shuriken Chat: aspecto del chat propio. Las clases de <html> las pone chat.js
+   según los ajustes de Apariencia (dark, bubble, glow, faded). */
+
+:root {
+  --scale: 1;
+  --side: 0px;
+  --text: #f2f2f5;
+  --muted: #a9a9b8;
+  --bubble-bg: rgba(24, 24, 30, 0.82);
+  --notice: #a970ff;
+  --font-size: calc(17px * var(--scale));
+}
+html:not(.dark) {
+  --text: #18181b;
+  --muted: #55555f;
+  --bubble-bg: rgba(255, 255, 255, 0.88);
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  color: var(--text);
+  font: 500 var(--font-size) / 1.4 "Inter", "Noto Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#messages {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--side);
+  box-sizing: border-box;
+  scrollbar-width: none;
+}
+#messages::-webkit-scrollbar { display: none; }
+/* Empuja los mensajes abajo cuando aún no llenan la ventana. */
+#messages::before { content: ""; margin-top: auto; }
+
+html.faded #messages {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 22%);
+}
+
+/* ---------- Mensaje ---------- */
+
+.msg {
+  margin: 0.15em 0;
+  padding: 0.1em 0;
+  overflow-wrap: anywhere;
+  animation: enter 0.18s ease-out;
+}
+@keyframes enter {
+  from { opacity: 0; transform: translateY(0.4em); }
+}
+
+html.glow .msg { text-shadow: 0 0 0.35em rgba(0, 0, 0, 0.9), 0 0 0.15em rgba(0, 0, 0, 0.9); }
+html:not(.bubble) .msg { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85); }
+html:not(.bubble):not(.dark) .msg { text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8); }
+
+html.bubble .msg {
+  background: var(--bubble-bg);
+  border-radius: 0.75em;
+  padding: 0.35em 0.65em;
+  margin: 0.3em 0;
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.meta { white-space: nowrap; }
+.badge {
+  height: 1.1em;
+  width: auto;
+  vertical-align: -0.18em;
+  margin-right: 0.22em;
+}
+.name { font-weight: 700; }
+.sep { margin-right: 0.3em; }
+html.bubble .sep { display: none; }
+html.bubble .meta { display: block; font-size: 0.9em; margin-bottom: 0.05em; }
+
+.text { color: var(--text); }
+.msg.action .text { font-style: italic; color: var(--user-color, var(--text)); }
+
+.emote {
+  height: 1.75em;
+  width: auto;
+  vertical-align: middle;
+  margin: -0.35em 0.05em;
+}
+/* Emotes "zero-width" (7TV/BTTV/FFZ): se dibujan encima del anterior. */
+.emote-stack { position: relative; display: inline-block; vertical-align: middle; }
+.emote-stack > .emote:first-child { vertical-align: middle; }
+.emote-stack > .emote.zw {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+}
+
+.text a { color: inherit; text-decoration: underline; text-decoration-color: rgba(127, 127, 255, 0.6); }
+
+.reply {
+  display: block;
+  font-size: 0.8em;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.msg.first { box-shadow: inset 3px 0 0 #00c8af; padding-left: 0.6em; }
+.msg.highlight { box-shadow: inset 3px 0 0 var(--notice); padding-left: 0.6em; }
+
+/* Subs, raids, anuncios… */
+.msg.notice {
+  box-shadow: inset 3px 0 0 var(--notice);
+  padding-left: 0.6em;
+}
+html.bubble .msg.notice { background: color-mix(in srgb, var(--notice) 22%, var(--bubble-bg)); }
+.system { display: block; color: var(--muted); font-size: 0.85em; font-weight: 600; }
+
+/* Estado de conexión: discreto y efímero. */
+.msg.status {
+  color: var(--muted);
+  font-size: 0.75em;
+  font-style: italic;
+  background: none !important;
+  box-shadow: none;
+  padding: 0;
+}
+.msg.status.error { color: #ff6b6b; }
+.msg.status.gone { opacity: 0; transition: opacity 1s; }
+
+/* ---------- Sin canales ---------- */
+
+#empty {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  color: #ddd;
+  font-size: 14px;
+  background: rgba(18, 18, 24, 0.78);
+  border-radius: 10px;
+  user-select: none;
+}
+#empty[hidden] { display: none; }
+#empty img { width: 64px; height: 64px; }
+#empty p { margin: 0; line-height: 1.5; padding: 0 16px; }
+#empty kbd { background: #333; border-radius: 4px; padding: 1px 6px; font-size: 12px; }

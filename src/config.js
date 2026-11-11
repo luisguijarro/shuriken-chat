@@ -8,6 +8,8 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
+const { normalizeChannel } = require("./sources/twitch-parse");
+
 const DEFAULT_BASE_URL = "https://socialstream.ninja/dock.html";
 
 /** Aspecto del chat: casi todo se traduce a parámetros de la URL de SSN. */
@@ -36,6 +38,20 @@ const DEFAULT_APPEARANCE = {
   hideScrollbar: true,
   customCss: "",
 };
+
+/**
+ * De dónde sale el chat:
+ *  - "native": la propia app lee las plataformas (Twitch…).
+ *  - "ssn": muestra el dock de Social Stream Ninja (respaldo de emergencia).
+ * Por defecto "native", salvo que ya hubiera una sesión de SSN configurada.
+ */
+function normalizeSources(raw, appearance) {
+  const s = obj(raw);
+  const mode = s.mode === "ssn" || s.mode === "native" ? s.mode : appearance.session.trim() ? "ssn" : "native";
+  const list = Array.isArray(obj(s.twitch).channels) ? obj(s.twitch).channels : [];
+  const channels = [...new Set(list.map(normalizeChannel).filter(Boolean))];
+  return { mode, twitch: { channels } };
+}
 
 /** Opciones que requieren reiniciar la app. */
 const DEFAULT_SYSTEM = {
@@ -83,8 +99,10 @@ function withDefaults(defaults, value) {
 
 function normalize(raw) {
   const c = obj(raw);
+  const appearance = withDefaults(DEFAULT_APPEARANCE, c.appearance);
   return {
-    appearance: withDefaults(DEFAULT_APPEARANCE, c.appearance),
+    sources: normalizeSources(c.sources, appearance),
+    appearance,
     system: withDefaults(DEFAULT_SYSTEM, c.system),
     window: withDefaults(DEFAULT_WINDOW, c.window),
   };
@@ -105,7 +123,11 @@ function save(config) {
 
 /** Lo que edita la ventana de ajustes. */
 function userSettings(config) {
-  return { appearance: { ...config.appearance }, system: { ...config.system } };
+  return {
+    sources: { mode: config.sources.mode, twitch: { channels: [...config.sources.twitch.channels] } },
+    appearance: { ...config.appearance },
+    system: { ...config.system },
+  };
 }
 
 const enc = (s) => new URLSearchParams({ x: s }).toString().slice(2);

@@ -1,12 +1,22 @@
 # CLAUDE.md — Shuriken Chat
 
-Visor de escritorio para el chat unificado de **Social Stream Ninja (SSN)**. El usuario ya usa SSN en OBS; esta app muestra el mismo chat (`https://socialstream.ninja/dock.html?session=…&params`) en una ventana **sin bordes, transparente, redimensionable, arrastrable y siempre visible** en su escritorio. Toda la configuración se hace con **clic derecho** sobre el chat.
+Chat unificado de escritorio. Dos modos ("Fuente del chat"):
+- **Plataformas** (`sources.mode = "native"`): la propia app lee el chat de cada plataforma y lo pinta con su propio render. Objetivo principal.
+- **SSN** (`"ssn"`): muestra el dock de **Social Stream Ninja** (`https://socialstream.ninja/dock.html?session=…&params`). Se mantiene como **respaldo de emergencia**.
+
+Todo se muestra en una ventana **sin bordes, transparente, redimensionable, arrastrable y siempre visible** en su escritorio. Toda la configuración se hace con **clic derecho** sobre el chat.
 
 - Objetivo: funcionar en **cualquier distro Linux** (prioridad). Windows es opcional.
 - **Prioridad del usuario: facilidad de uso. El usuario final NO debe tener que cambiar nada en la configuración de SSN**: pega su URL del dock de OBS y funciona.
 - Entorno del usuario: CachyOS (Arch), **KDE Plasma sobre Wayland**, GPU AMD (amdgpu).
 - Idioma: el usuario habla español. **Interfaz, comentarios y mensajes en español.**
 - Proyecto independiente: no usar "Social Stream Ninja" ni "Ninja" como nombre de la app.
+
+## Ramas y releases
+
+- **Una rama por plataforma**, con el nombre de la plataforma (`twitch`, luego `kick`, `youtube`…), y **una release por cada plataforma añadida**. Versiones: 0.2.0 = solo SSN (master), 0.3.0 = Twitch.
+- Tras terminar una plataforma: tests, prueba en vivo, commit en su rama, push y AppImage (`npm run build:appimage`). Fusionar en master y publicar la release solo cuando el usuario lo confirme.
+- El remoto `origin` es un Gitea/Forgejo propio (git.dark-pi.net).
 
 ## Stack y por qué
 
@@ -21,6 +31,11 @@ src/main.js               Proceso principal: ventanas, menú contextual, bandeja
 src/config.js             Config (camelCase), normalize/defaults, chatUrl(), pageCss()
 src/preload-chat.js       Preload aislado del chat: bloqueo de multimedia, clic derecho, arrastre/bordes
 src/preload-settings.js   Expone window.shuriken.invoke(cmd, args) a settings.js (lista blanca de comandos)
+src/sources/index.js      SourceManager: arranca/para conectores según config, backlog (150), formato de eventos normalizado (documentado ahí)
+src/sources/twitch.js     Conector de Twitch: IRC por WebSocket anónimo (justinfan), reconexión con backoff, cola por canal
+src/sources/twitch-parse.js  Puro y testeado: parseIrc, normalizeChannel, tokenize (texto/emotes/enlaces), insignias
+src/sources/twitch-assets.js Emotes 7TV/BTTV/FFZ (canal + globales) e insignias (IVR), APIs públicas sin auth
+ui/chat.html/.css/.js     Render del chat propio (modo plataformas)
 ui/settings.html/.css/.js Ventana "Apariencia…": formulario, importar URL de SSN, vista previa en vivo
 ui/frame.html             Marco de la ventana del chat (borde, fondo chroma, esquinas); estilo inyectado con frameCss()
 ui/welcome.html           Se muestra en la vista del chat si aún no hay sesión
@@ -49,6 +64,16 @@ test/config.test.js       Tests de config (node --test)
 - Los enlaces de los mensajes se abren en el navegador del sistema (`setWindowOpenHandler` + `will-navigate` a otro origen).
 - Instancia única (`requestSingleInstanceLock`).
 
+## Chat propio (modo plataformas)
+
+- Los conectores corren en el **proceso principal** (Node 24 de Electron: `WebSocket` y `fetch` globales; sin CORS) y emiten eventos normalizados. `main.js` los reenvía a la vista del chat (`shuriken:chat-event`); al cargar la página se mandan el estilo (`shuriken:chat-style`) y el backlog (`shuriken:chat-backlog`). El puente `window.shurikenChat` solo se expone en `ui/chat.html` (nunca en la web de SSN).
+- **Seguridad del render**: todo lo que escriben los usuarios se inserta con `textContent`/nodos de texto, nunca `innerHTML`. Enlaces e imágenes solo http(s). CSP estricta en chat.html.
+- **Twitch**: lectura anónima, sin cuenta ni claves. Emotes nativos (incluidos los de suscriptor del canal) por posición del tag `emotes` — **posiciones en caracteres Unicode, no UTF-16** (`Array.from`). Emotes de terceros por palabra: prioridad canal > global y 7TV > BTTV > FFZ. Zero-width: 7TV `flags & 1` o `data.flags & 256`; BTTV lista fija; FFZ `modifier`. Insignias con imágenes oficiales vía `api.ivr.fi/v2/twitch/badges/{global,channel?login=}`. El `room-id` (de ROOMSTATE) dispara la carga de emotes/insignias del canal.
+- Los mensajes de cada canal se **encolan hasta que sus emotes están cargados** (máx. 4 s, `whenReady`) para que los primeros no salgan sin emotes; borrados/baneos van por la misma cola para no adelantarse.
+- Eventos soportados: mensajes, /me, respuestas, primer mensaje, mensajes destacados, subs/regalos/raids/anuncios (USERNOTICE), borrado de mensaje (CLEARMSG), baneo/timeout (CLEARCHAT con usuario) y vaciado del chat.
+- Opciones de Apariencia que usa el render propio: darkMode, bubble, textGlow, randomColor, fadedTop, scale, sidePadding (+ el CSS común: transparencia, opacidad, CSS personalizado). Las exclusivas de SSN (sesión, idioma, hideMenu, extraParams, baseUrl, URL generada) se ocultan en modo plataformas (`.ssn-only`).
+- `sources.mode` por defecto: "native", salvo que ya haya sesión de SSN (así quien actualiza no ve cambios).
+
 ## Trampas conocidas (ya resueltas, no reintroducir)
 
 - **X11 en Wayland**: Chromium elige la plataforma ANTES de ejecutar main.js. `app.commandLine.appendSwitch("ozone-platform","x11")` hace que el proceso de GPU se caiga 3 veces y todo vaya por software; `ozone-platform-hint` puesto así no tiene efecto. Solución: `relaunchWithX11IfNeeded()` relanza el ejecutable con `--ozone-platform=x11` (en AppImage relanza `$APPIMAGE`, porque el montaje desaparece al salir) y sale. **Electron rellena él mismo el switch con "wayland"**: comprobar el valor (`getSwitchValue`), no `hasSwitch`. `SHURIKEN_RELAUNCHED` evita bucles.
@@ -72,6 +97,8 @@ npm run build:appimage        # solo AppImage (~125 MB)
 Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm start`.
 
 ## Estado actual
+
+- 🚧 Rama `twitch` (v0.3.0): chat propio con Twitch. Probado en vivo con un canal real (mensajes, colores, insignias, emotes 7TV, flujo de añadir canal desde Apariencia). Pendiente: que el usuario lo pruebe, fusionar en master y publicar release.
 
 - ✅ Migrado a Electron. Tests pasan. Comprobado en la máquina del usuario (dev y AppImage): ventanas en XWayland con GPU, WebRTC disponible en la página real de SSN, 0 dispositivos multimedia, cámara denegada, barra de SSN oculta, fondo transparente, config guardada.
 - ⏳ **Pendiente de probar por el usuario con su sesión real**: que lleguen los mensajes, arrastrar/redimensionar, menú de clic derecho, bandeja en KDE, transparencia real.

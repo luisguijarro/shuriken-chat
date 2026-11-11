@@ -42,6 +42,59 @@ const rgbaCss = (h) =>
 const setChroma = (hex) => setRgba("chroma", hex, "00000066");
 const getChroma = () => getRgba("chroma");
 
+// ---------- fuente del chat ----------
+
+let twitchChannels = [];
+
+/** Igual que normalizeChannel en src/sources/twitch-parse.js. */
+function normalizeTwitch(value) {
+  let c = String(value || "").trim().toLowerCase();
+  c = c.replace(/^https?:\/\/(www\.|m\.)?twitch\.tv\//, "").replace(/^[#@]/, "");
+  c = c.split(/[/?#]/)[0];
+  return /^[a-z0-9_]{1,25}$/.test(c) ? c : null;
+}
+
+const getMode = () => (document.querySelector('input[name="mode"]:checked') || {}).value || "native";
+
+function setMode(mode) {
+  for (const r of document.querySelectorAll('input[name="mode"]')) r.checked = r.value === mode;
+  document.body.classList.toggle("mode-native", mode === "native");
+  document.body.classList.toggle("mode-ssn", mode === "ssn");
+}
+
+function renderChannels() {
+  const ul = $("twitchList");
+  ul.textContent = "";
+  for (const c of twitchChannels) {
+    const li = document.createElement("li");
+    li.append(document.createTextNode(c));
+    const del = document.createElement("button");
+    del.type = "button";
+    del.title = "Quitar";
+    del.textContent = "×";
+    del.addEventListener("click", () => {
+      twitchChannels = twitchChannels.filter((x) => x !== c);
+      renderChannels();
+      schedulePreview();
+    });
+    li.append(del);
+    ul.append(li);
+  }
+}
+
+function addTwitch() {
+  const raw = $("twitchInput").value;
+  if (!raw.trim()) return;
+  const c = normalizeTwitch(raw);
+  if (!c) return message("twitchMsg", "Nombre no válido: solo letras, números y _ (máx. 25).", "error");
+  if (twitchChannels.includes(c)) return message("twitchMsg", `#${c} ya está en la lista.`, "");
+  twitchChannels.push(c);
+  $("twitchInput").value = "";
+  message("twitchMsg", `#${c} añadido ✓`, "ok");
+  renderChannels();
+  schedulePreview();
+}
+
 // ---------- formulario <-> ajustes ----------
 
 let lastLoaded = null;
@@ -50,6 +103,9 @@ function fill(view) {
   lastLoaded = view;
   const a = view.appearance;
   const s = view.system;
+  setMode(view.sources.mode);
+  twitchChannels = [...view.sources.twitch.channels];
+  renderChannels();
   $("session").value = a.session;
   ensureOption($("language"), a.language);
   $("language").value = a.language;
@@ -77,6 +133,7 @@ function fill(view) {
 
 function collect() {
   return {
+    sources: { mode: getMode(), twitch: { channels: [...twitchChannels] } },
     appearance: {
       baseUrl: $("baseUrl").value.trim(),
       session: $("session").value.trim(),
@@ -143,6 +200,7 @@ function importUrl(text) {
 
   const current = collect();
   const a = current.appearance;
+  current.sources.mode = "ssn"; // quien importa una URL de SSN quiere usar SSN
   a.baseUrl = u.origin + u.pathname;
   a.session = p.get("session");
   a.language = p.get("ln") || a.language;
@@ -197,8 +255,14 @@ async function load() {
 }
 
 document.addEventListener("input", (e) => {
-  if (e.target.id === "importUrl") return;
+  if (e.target.id === "importUrl" || e.target.id === "twitchInput") return;
+  if (e.target.name === "mode") setMode(getMode());
   schedulePreview();
+});
+
+$("twitchAdd").addEventListener("click", addTwitch);
+$("twitchInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") addTwitch();
 });
 
 $("importBtn").addEventListener("click", () => importUrl($("importUrl").value));

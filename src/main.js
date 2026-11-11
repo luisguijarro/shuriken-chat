@@ -7,6 +7,7 @@ const {
   app, BrowserWindow, Menu, Tray, WebContentsView, ipcMain, nativeImage, screen, session, shell,
 } = require("electron");
 const config = require("./config");
+const { SourceManager } = require("./sources");
 
 const UI = path.join(__dirname, "..", "ui");
 const ICONS = path.join(__dirname, "..", "assets", "icons");
@@ -16,9 +17,11 @@ const ZOOM_MIN = 0.3;
 const ZOOM_MAX = 3;
 const MIN_W = 120;
 const MIN_H = 80;
+const NATIVE = "shuriken:native"; // "URL" del chat propio (modo plataformas)
 const EDGE = 6; // px sensibles al borde para redimensionar (igual que en el preload)
 
 let cfg = config.load();
+const sources = new SourceManager();
 let chatWin = null; // ventana: carga ui/frame.html (borde, fondo, esquinas)
 let chatView = null; // vista interior con SSN, desplazada según el margen
 let settingsWin = null;
@@ -147,26 +150,51 @@ function pageState(wc) {
   return { locked: cfg.window.locked, edges: config.frameLayout(cfg.appearance).inset < EDGE };
 }
 
+/** Qué se carga en la vista del chat: nuestro chat propio o el dock de SSN. */
+const chatTarget = () => (cfg.sources.mode === "native" ? NATIVE : config.chatUrl(cfg.appearance));
+const nativeChat = () => currentUrl === NATIVE;
+
 function loadChat() {
-  currentUrl = config.chatUrl(cfg.appearance);
+  currentUrl = chatTarget();
   const wc = chatWc();
   if (!wc) return;
-  if (currentUrl) wc.loadURL(currentUrl);
+  if (currentUrl === NATIVE) wc.loadFile(path.join(UI, "chat.html"));
+  else if (currentUrl) wc.loadURL(currentUrl);
   else wc.loadFile(path.join(UI, "welcome.html"));
+}
+
+/** Ajustes de aspecto que usa el chat propio (ui/chat.js). */
+function pushChatStyle() {
+  if (!nativeChat()) return;
+  const a = cfg.appearance;
+  chatWc()?.send("shuriken:chat-style", {
+    darkMode: a.darkMode,
+    bubble: a.bubble,
+    textGlow: a.textGlow,
+    randomColor: a.randomColor,
+    fadedTop: a.fadedTop,
+    scale: a.scale,
+    sidePadding: a.sidePadding,
+    channels: cfg.sources.twitch.channels.length,
+  });
 }
 
 function applySettings(settings) {
   const s = config.normalize({ ...settings, window: cfg.window });
+  cfg.sources = s.sources;
   cfg.appearance = s.appearance;
   cfg.system = s.system;
-  const url = config.chatUrl(cfg.appearance);
+  sources.apply(cfg.sources);
   if (alive(chatWin)) {
-    if (url !== currentUrl) loadChat();
-    else applyPageCss();
+    if (chatTarget() !== currentUrl) loadChat();
+    else {
+      applyPageCss();
+      pushChatStyle();
+    }
     applyFrameCss();
     layoutChat();
   }
-  return url;
+  return config.chatUrl(cfg.appearance); // la URL de SSN equivalente (para OBS)
 }
 
 // ---------------------------------------------------------------------------
@@ -417,6 +445,10 @@ function createChatWindow() {
     cssKeys.delete(wc);
     applyPageCss();
     pushPageState();
+    if (nativeChat()) {
+      pushChatStyle();
+      wc.send("shuriken:chat-backlog", sources.backlog);
+    }
   });
 
   // SHURIKEN_DEBUG=1: consola de la página en la terminal + comprobaciones.
@@ -536,10 +568,19 @@ function registerIpc() {
 function start() {
   lockDownPermissions();
   registerIpc();
+  sources.on("event", (ev) => {
+    if (nativeChat()) chatWc()?.send("shuriken:chat-event", ev);
+  });
+  sources.apply(cfg.sources);
   createChatWindow();
   buildTray();
-  if (!cfg.appearance.session.trim()) openSettings();
+  // Primera vez (o sin nada que mostrar): abrir Apariencia.
+  const nothing = cfg.sources.mode === "native" ? !cfg.sources.twitch.channels.length : !cfg.appearance.session.trim();
+  if (nothing) openSettings();
 }
 
 app.on("window-all-closed", () => app.quit());
-app.on("before-quit", persistWindow);
+app.on("before-quit", () => {
+  sources.stop();
+  persistWindow();
+});

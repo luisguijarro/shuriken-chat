@@ -127,3 +127,21 @@ footer {
   border-top: 1px solid var(--border);
 }
 footer .msg { flex: 1; margin: 0; }
+
+/* ---------- Fuente del chat ---------- */
+body.mode-native .ssn-only,
+body.mode-ssn .native-only { display: none !important; }
+
+.chips { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.chips:empty::before { content: "Sin canales todavía."; color: var(--muted, #999); font-size: 13px; }
+.chips li {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 4px 3px 10px; border-radius: 999px;
+  background: rgba(145, 70, 255, .18); border: 1px solid rgba(145, 70, 255, .45);
+  font-size: 13px;
+}
+.chips li button {
+  border: 0; background: transparent; color: inherit; cursor: pointer;
+  padding: 0 6px; font-size: 15px; line-height: 1; border-radius: 999px;
+}
+.chips li button:hover { background: rgba(255, 255, 255, .15); }
