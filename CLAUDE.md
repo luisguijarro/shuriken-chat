@@ -1,0 +1,83 @@
+# CLAUDE.md — Shuriken Chat
+
+Visor de escritorio para el chat unificado de **Social Stream Ninja (SSN)**. El usuario ya usa SSN en OBS; esta app muestra el mismo chat (`https://socialstream.ninja/dock.html?session=…&params`) en una ventana **sin bordes, transparente, redimensionable, arrastrable y siempre visible** en su escritorio. Toda la configuración se hace con **clic derecho** sobre el chat.
+
+- Objetivo: funcionar en **cualquier distro Linux** (prioridad). Windows es opcional.
+- **Prioridad del usuario: facilidad de uso. El usuario final NO debe tener que cambiar nada en la configuración de SSN**: pega su URL del dock de OBS y funciona.
+- Entorno del usuario: CachyOS (Arch), **KDE Plasma sobre Wayland**, GPU AMD (amdgpu).
+- Idioma: el usuario habla español. **Interfaz, comentarios y mensajes en español.**
+- Proyecto independiente: no usar "Social Stream Ninja" ni "Ninja" como nombre de la app.
+
+## Stack y por qué
+
+- **Electron** (45.x) + electron-builder (AppImage/deb/rpm; nsis en Windows). Sin framework de frontend ni bundler: `ui/` son HTML/CSS/JS estáticos. JS en CommonJS.
+- **Historia:** se empezó con Rust + Tauri v2, pero **WebKitGTK de Arch (2.54) está compilado sin WebRTC** (`RTCPeerConnection` no existe; comprobado). SSN entrega los mensajes al dock por WebRTC (VDO.Ninja), así que no llegaba nada. La alternativa sin WebRTC (`&server2`) obliga a cambiar ajustes en la extensión de SSN, y el usuario no lo quiere. OBS funciona porque usa CEF (Chromium) → se migró a Electron, que también lleva Chromium. No volver a webviews del sistema.
+- `src-tauri/` es el código Tauri antiguo, **obsoleto**; pendiente de que el usuario confirme que se borra.
+
+## Estructura
+
+```text
+src/main.js               Proceso principal: ventanas, menú contextual, bandeja, IPC, arrastre, permisos
+src/config.js             Config (camelCase), normalize/defaults, chatUrl(), pageCss()
+src/preload-chat.js       Preload aislado del chat: bloqueo de multimedia, clic derecho, arrastre/bordes
+src/preload-settings.js   Expone window.shuriken.invoke(cmd, args) a settings.js (lista blanca de comandos)
+ui/settings.html/.css/.js Ventana "Apariencia…": formulario, importar URL de SSN, vista previa en vivo
+ui/frame.html             Marco de la ventana del chat (borde, fondo chroma, esquinas); estilo inyectado con frameCss()
+ui/welcome.html           Se muestra en la vista del chat si aún no hay sesión
+assets/icon.svg           Icono fuente; assets/icons/*.png|ico para ventana, bandeja y empaquetado
+scripts/start.js          Lanzador de `npm start` (quita ELECTRON_RUN_AS_NODE)
+test/config.test.js       Tests de config (node --test)
+```
+
+## Arquitectura
+
+- **Ventana chat = marco + vista**: la `BrowserWindow` carga `ui/frame.html` (borde, fondo, esquinas redondeadas) y SSN va en un `WebContentsView` hijo, desplazado `inset = borderWidth + margin` px y con `setBorderRadius(radius - inset)` (esquinas concéntricas). Así SSN ve un viewport del tamaño real y sus maquetaciones (scroll en documento o en `#output` con `fadedtop`, alturas en `100vh`) no se rompen; un margen hecho con CSS dentro de SSN cortaría mensajes. `layoutChat()` recoloca la vista en cada `resize` y al cambiar ajustes. Ambos webContents usan `preload-chat.js`; el estado `edges` dice a cada uno si detecta bordes de redimensión (el marco siempre; la vista solo si `inset < 6`). La vista no se destruye sola: se cierra en `closed`.
+- **Fondo**: con chroma, el color lo pinta el marco (cubre también el margen) y la página de SSN se fuerza transparente para no sumar dos capas semitransparentes. El parámetro `chroma` se sigue poniendo en la URL (sirve para usar la URL generada en OBS).
+- **Ventana chat (opciones)**: `frame:false`, `transparent:true`, `backgroundColor:#00000000`, `backgroundThrottling:false`, `sandbox:true`, `contextIsolation:true`, `nodeIntegrationInSubFrames:true` (para que el preload también corra en iframes). Título fijo "Shuriken Chat" (se bloquea `page-title-updated`).
+- **CSS** de la página y del marco: `insertCSS` en cada `dom-ready` (`replaceCss`, una clave por webContents); al cambiar ajustes se hace `removeInsertedCSS` + `insertCSS`, sin recargar. Si cambia la URL → `loadURL`.
+- **Arrastre/redimensión**: el preload envía `shuriken:drag-start` (dirección o null) y `drag-end`; el main sigue el cursor con `screen.getCursorScreenPoint()` cada 16 ms y hace `setPosition`/`setBounds`. Requiere X11 (ver abajo). Alt+arrastrar funciona sobre enlaces/botones.
+- **IPC**: el main comprueba `event.sender` (chat vs ajustes). La web remota solo puede: `shuriken:menu`, `drag-start`, `drag-end`, `page-state`. Los comandos de ajustes (`get_settings`, `preview_settings`, `save_settings`, `revert_settings`) solo se aceptan desde la ventana de ajustes. **Al añadir un comando**: registrarlo en `registerIpc()` y, si es de ajustes, en la lista blanca de `preload-settings.js`.
+- **Ajustes**: `preview_settings` aplica sin guardar; `save_settings` guarda; cerrar la ventana de ajustes vuelve a lo que hay en disco.
+- **Menú contextual** (nativo): Apariencia…, Zoom, Siempre visible, Bloquear posición y tamaño, Atravesar clics, Recargar, Salir. **Bandeja**: Mostrar/ocultar, Atravesar clics (única forma de desactivarlo sin reiniciar), Apariencia…, Salir.
+- **Config** en `~/.config/shuriken-chat/config.json` (`%APPDATA%` en Windows). `userData` de Chromium se fija en esa misma carpeta (si no, sería "~/.config/Shuriken Chat").
+  - `appearance`: lo que va a la URL (session, ln, scale, sidepadding, chroma RGBA hex, darkmode, bubble, textglow, randomcolor, fadedtop, hidemenu, extraParams) + marco (margin=10, borderWidth=1, borderColor RGBA hex, cornerRadius=10). Defaults = config elegida por el usuario: sidePadding 0, useChroma true con chroma 00000066, borde 1 px ffffff66 + CSS (transparentBg, opacity, hideScrollbar, customCss).
+  - `hideMenu` (true por defecto) añade `&hidemenu`: SSN solo oculta su barra de controles sola dentro de OBS.
+  - `system`: `nativeWayland` (false por defecto) y `compatRendering` (`app.disableHardwareAcceleration()`). Requieren reinicio.
+  - `window`: x, y, width, height (DIP), zoom, alwaysOnTop, locked. `persistWindow()` **solo** sobrescribe la sección `window` en disco, para no guardar ajustes que se están previsualizando.
+  - "Atravesar clics" **no se persiste** a propósito (evita quedar atrapado).
+- **Sin cámara/micro (requisito del usuario)**: el preload ejecuta en el mundo de la página (`contextBridge.executeInMainWorld`) un bloqueo de `enumerateDevices` (→ []), `getUserMedia` y `getDisplayMedia` (→ NotAllowedError). Usa propiedades con getter + setter vacío: **SSN reasigna `getUserMedia`**, y con `writable:false` lanzaba un TypeError. Además el main deniega permisos (lista blanca: solo `clipboard-sanitized-write`).
+- Los enlaces de los mensajes se abren en el navegador del sistema (`setWindowOpenHandler` + `will-navigate` a otro origen).
+- Instancia única (`requestSingleInstanceLock`).
+
+## Trampas conocidas (ya resueltas, no reintroducir)
+
+- **X11 en Wayland**: Chromium elige la plataforma ANTES de ejecutar main.js. `app.commandLine.appendSwitch("ozone-platform","x11")` hace que el proceso de GPU se caiga 3 veces y todo vaya por software; `ozone-platform-hint` puesto así no tiene efecto. Solución: `relaunchWithX11IfNeeded()` relanza el ejecutable con `--ozone-platform=x11` (en AppImage relanza `$APPIMAGE`, porque el montaje desaparece al salir) y sale. **Electron rellena él mismo el switch con "wayland"**: comprobar el valor (`getSwitchValue`), no `hasSwitch`. `SHURIKEN_RELAUNCHED` evita bucles.
+- **`ELECTRON_RUN_AS_NODE=1`** lo define la terminal de VS Code y convierte Electron en Node: `scripts/start.js` lo quita. Al lanzar el binario a mano usar `env -u ELECTRON_RUN_AS_NODE`.
+- **`webContents.executeJavaScript` espera a que la página termine de cargar**, y SSN nunca termina (conexiones abiertas): usar `webContents.mainFrame.executeJavaScript`.
+- npm 12 bloquea scripts de instalación: `electron-winstaller` está denegado (solo Windows); el binario de Electron sí se descarga.
+- Al hacer `pkill` en pruebas, matar primero el proceso principal; si se matan antes los hijos sale un falso "GPU process isn't usable". Usar patrones tipo `[s]huriken-chat/...` para que `pkill -f` no se mate a sí mismo.
+- Avisos inofensivos al arrancar: `GetVSyncParametersIfAvailable() failed`, `atom_cache ... kAtomsToCache`, y "Wake lock request failed" de SSN (denegado a propósito).
+
+## Comandos
+
+```sh
+npm install
+npm start                     # ejecutar (relanza en X11 si hay Wayland)
+SHURIKEN_DEBUG=1 npm start    # consola de la página + diagnóstico (webrtc, dispositivos, cámara)
+npm test                      # tests de config
+npm run build                 # AppImage + deb + rpm en dist/ (rpm necesita rpmbuild)
+npm run build:appimage        # solo AppImage (~125 MB)
+```
+
+Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm start`.
+
+## Estado actual
+
+- ✅ Migrado a Electron. Tests pasan. Comprobado en la máquina del usuario (dev y AppImage): ventanas en XWayland con GPU, WebRTC disponible en la página real de SSN, 0 dispositivos multimedia, cámara denegada, barra de SSN oculta, fondo transparente, config guardada.
+- ⏳ **Pendiente de probar por el usuario con su sesión real**: que lleguen los mensajes, arrastrar/redimensionar, menú de clic derecho, bandeja en KDE, transparencia real.
+- ⏳ Borrar `src-tauri/` cuando el usuario lo confirme.
+- ⏳ Repo git inicializado **sin commits todavía**. Hacer commit solo cuando el usuario lo pida.
+
+## Privacidad
+
+El `session=` de SSN actúa como contraseña del chat del usuario: no escribirlo en el código, commits, tests ni documentación. En pruebas automáticas usar una sesión inventada.

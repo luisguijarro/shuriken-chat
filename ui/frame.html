@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Shuriken Chat</title>
+  <!-- Marco de la ventana del chat: borde, fondo y esquinas.
+       El chat (SSN) va encima, en una vista desplazada hacia dentro según el margen.
+       El estilo de .frame lo inyecta la app (config.frameCss). -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; user-select: none; }
+    .frame { position: fixed; inset: 0; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <div class="frame"></div>
+</body>
+</html>

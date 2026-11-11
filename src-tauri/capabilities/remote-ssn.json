@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "remote-ssn",
+  "description": "La web de Social Stream Ninja solo puede abrir el menú, arrastrar, redimensionar y pedir su estilo.",
+  "windows": ["chat"],
+  "remote": {
+    "urls": ["https://socialstream.ninja/*", "https://*.socialstream.ninja/*"]
+  },
+  "permissions": [
+    "allow-show-menu",
+    "allow-start-drag",
+    "allow-start-resize",
+    "allow-page-ready"
+  ]
+}

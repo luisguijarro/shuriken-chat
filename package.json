@@ -1,0 +1,58 @@
+{
+  "name": "shuriken-chat",
+  "productName": "Shuriken Chat",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Visor de escritorio sin bordes para el chat unificado de Social Stream Ninja",
+  "author": "Shuriken Chat",
+  "license": "MIT",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node scripts/start.js",
+    "test": "node --test test/",
+    "build": "electron-builder --linux",
+    "build:appimage": "electron-builder --linux AppImage",
+    "build:win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^45.3.0",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "dev.shurikenchat.desktop",
+    "productName": "Shuriken Chat",
+    "files": [
+      "src/**",
+      "ui/**",
+      "assets/icons/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "category": "Utility",
+      "icon": "assets/icons/icon.png",
+      "executableName": "shuriken-chat",
+      "synopsis": "Chat de Social Stream Ninja flotando en tu escritorio",
+      "maintainer": "Shuriken Chat",
+      "syncDesktopName": true
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icons/icon.ico"
+    },
+    "artifactName": "shuriken-chat-${version}-${arch}.${ext}"
+  },
+  "allowScripts": {
+    "electron-winstaller": false
+  },
+  "desktopName": "shuriken-chat.desktop"
+}

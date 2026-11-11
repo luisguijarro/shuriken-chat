@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "local",
+  "description": "Páginas propias de la app (ajustes y pantalla de bienvenida).",
+  "windows": ["chat", "settings"],
+  "permissions": [
+    "core:default",
+    "allow-show-menu",
+    "allow-start-drag",
+    "allow-start-resize",
+    "allow-page-ready",
+    "allow-get-settings",
+    "allow-preview-settings",
+    "allow-save-settings",
+    "allow-revert-settings"
+  ]
+}

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shuriken Chat · Apariencia</title>
+  <link rel="stylesheet" href="settings.css" />
+</head>
+<body>
+  <header>
+    <img src="icon.svg" alt="" />
+    <div>
+      <h1>Shuriken Chat</h1>
+      <p class="muted">Los cambios se ven en directo. Pulsa <b>Guardar</b> para conservarlos.</p>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>Importar desde Social Stream Ninja</h2>
+      <p class="muted">Pega la URL de tu dock (<code>dock.html?session=…</code>) y se rellenará todo automáticamente.</p>
+      <div class="row">
+        <input id="importUrl" type="text" placeholder="https://socialstream.ninja/dock.html?session=…" spellcheck="false" />
+        <button id="importBtn" type="button">Importar</button>
+      </div>
+      <p id="importMsg" class="msg"></p>
+    </section>
+
+    <section>
+      <h2>Conexión</h2>
+      <label class="field">
+        <span>ID de sesión</span>
+        <div class="row">
+          <input id="session" type="password" autocomplete="off" spellcheck="false" />
+          <button id="toggleSession" type="button" class="ghost" title="Mostrar / ocultar">👁</button>
+        </div>
+      </label>
+      <label class="field">
+        <span>Idioma</span>
+        <select id="language">
+          <option value="es">Español</option>
+          <option value="en">English</option>
+          <option value="pt">Português</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+          <option value="it">Italiano</option>
+          <option value="ca">Català</option>
+          <option value="ja">日本語</option>
+          <option value="ko">한국어</option>
+          <option value="zh">中文</option>
+          <option value="ru">Русский</option>
+        </select>
+      </label>
+    </section>
+
+    <section>
+      <h2>Aspecto del chat</h2>
+      <label class="field">
+        <span>Escala del texto <output id="scaleOut"></output></span>
+        <input id="scale" type="range" min="0.25" max="2" step="0.05" />
+      </label>
+      <label class="field">
+        <span>Margen lateral <output id="sidePaddingOut"></output></span>
+        <input id="sidePadding" type="range" min="0" max="64" step="1" />
+      </label>
+      <div class="checks">
+        <label><input id="darkMode" type="checkbox" /> Modo oscuro</label>
+        <label><input id="bubble" type="checkbox" /> Burbujas</label>
+        <label><input id="textGlow" type="checkbox" /> Brillo en el texto</label>
+        <label><input id="randomColor" type="checkbox" /> Colores aleatorios por usuario</label>
+        <label><input id="fadedTop" type="checkbox" /> Difuminar mensajes antiguos (arriba)</label>
+        <label><input id="hideMenu" type="checkbox" /> Ocultar barra de controles de SSN</label>
+      </div>
+    </section>
+
+    <section>
+      <h2>Marco de la ventana</h2>
+      <label class="field">
+        <span>Margen alrededor del chat <output id="marginOut"></output></span>
+        <input id="margin" type="range" min="0" max="60" step="1" />
+      </label>
+      <label class="field">
+        <span>Esquinas redondeadas <output id="cornerRadiusOut"></output></span>
+        <input id="cornerRadius" type="range" min="0" max="40" step="1" />
+      </label>
+      <label class="field">
+        <span>Grosor del borde <output id="borderWidthOut"></output></span>
+        <input id="borderWidth" type="range" min="0" max="10" step="1" />
+      </label>
+      <div id="borderBox" class="row chroma">
+        <input id="borderColor" type="color" />
+        <label class="field grow">
+          <span>Opacidad del borde <output id="borderAlphaOut"></output></span>
+          <input id="borderAlpha" type="range" min="0" max="255" step="1" />
+        </label>
+        <div id="borderSwatch" class="swatch"></div>
+      </div>
+      <p class="muted">El margen también sirve para arrastrar y redimensionar la ventana con comodidad.</p>
+    </section>
+
+    <section>
+      <h2>Fondo y transparencia</h2>
+      <div class="checks">
+        <label><input id="transparentBg" type="checkbox" /> Fondo totalmente transparente</label>
+        <label><input id="useChroma" type="checkbox" /> Usar color de fondo (chroma)</label>
+      </div>
+      <div id="chromaBox" class="row chroma">
+        <input id="chromaColor" type="color" />
+        <label class="field grow">
+          <span>Opacidad del fondo <output id="chromaAlphaOut"></output></span>
+          <input id="chromaAlpha" type="range" min="0" max="255" step="1" />
+        </label>
+        <div id="chromaSwatch" class="swatch"></div>
+      </div>
+      <label class="field">
+        <span>Opacidad de toda la ventana <output id="opacityOut"></output></span>
+        <input id="opacity" type="range" min="0.1" max="1" step="0.05" />
+      </label>
+      <div class="checks">
+        <label><input id="hideScrollbar" type="checkbox" /> Ocultar barra de desplazamiento</label>
+      </div>
+    </section>
+
+    <details>
+      <summary>Avanzado</summary>
+      <label class="field">
+        <span>Parámetros extra de SSN <small class="muted">(ej. <code>compact&amp;hidesource</code>)</small></span>
+        <textarea id="extraParams" rows="2" spellcheck="false"></textarea>
+      </label>
+      <label class="field">
+        <span>CSS personalizado <small class="muted">(se inyecta en la página del chat)</small></span>
+        <textarea id="customCss" rows="6" spellcheck="false" placeholder=".message { font-family: 'Comic Neue'; }"></textarea>
+      </label>
+      <label class="field">
+        <span>Página base</span>
+        <input id="baseUrl" type="text" spellcheck="false" />
+      </label>
+      <h3>Sistema <small class="muted">(requiere reiniciar)</small></h3>
+      <div class="checks">
+        <label><input id="nativeWayland" type="checkbox" /> Wayland nativo (no recomendado: no se podrá mover la ventana ni mantenerla siempre visible)</label>
+        <label><input id="compatRendering" type="checkbox" /> Modo compatibilidad gráfica: sin aceleración por GPU (si la ventana sale en blanco o negro)</label>
+      </div>
+    </details>
+
+    <section>
+      <h2>URL generada</h2>
+      <div class="row">
+        <input id="url" type="text" readonly spellcheck="false" />
+        <button id="copyUrl" type="button" class="ghost">Copiar</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span id="status" class="msg"></span>
+    <button id="revert" type="button" class="ghost">Descartar cambios</button>
+    <button id="save" type="button">Guardar</button>
+  </footer>
+
+  <script src="settings.js"></script>
+</body>
+</html>
