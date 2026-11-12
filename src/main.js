@@ -13,6 +13,8 @@ const { TwitchAuth, DEFAULT_CLIENT_ID } = require("./sources/twitch-auth");
 const { normalizeChannel } = require("./sources/twitch-parse");
 const { normalizeKickChannel } = require("./sources/kick-parse");
 const { fetchChannel: fetchKickChannel } = require("./sources/kick");
+const { normalizeYoutubeTarget } = require("./sources/youtube-parse");
+const { lookupYoutube } = require("./sources/youtube");
 
 const UI = path.join(__dirname, "..", "ui");
 const ICONS = path.join(__dirname, "..", "assets", "icons");
@@ -595,6 +597,17 @@ function registerIpc() {
     try {
       const info = await fetchKickChannel(c);
       return info ? { exists: true, name: info.name, live: info.live } : { exists: false };
+    } catch (e) {
+      return { exists: null, error: e.message };
+    }
+  });
+
+  // ¿Existe este canal de YouTube y está en directo?
+  settingsCmd("check_youtube_channel", async ({ channel }) => {
+    const t = normalizeYoutubeTarget(channel);
+    if (!t) return { exists: false };
+    try {
+      return await lookupYoutube(t);
     } catch (e) {
       return { exists: null, error: e.message };
     }

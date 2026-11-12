@@ -71,6 +71,17 @@
       <ul id="kickList" class="chips kick"></ul>
     </section>
 
+    <section class="native-only">
+      <h2>YouTube</h2>
+      <p class="muted">Escribe tu canal (<code>@canal</code>) o pega su URL: el chat se conecta solo cuando empiezas un directo. También vale la URL de un directo concreto. No hace falta cuenta.</p>
+      <div class="row">
+        <input id="youtubeInput" type="text" placeholder="@tu_canal" spellcheck="false" autocomplete="off" />
+        <button id="youtubeAdd" type="button">Añadir</button>
+      </div>
+      <p id="youtubeMsg" class="msg"></p>
+      <ul id="youtubeList" class="chips youtube"></ul>
+    </section>
+
     <section class="ssn-only">
       <h2>Importar desde Social Stream Ninja</h2>
       <p class="muted">Pega la URL de tu dock (<code>dock.html?session=…</code>) y se rellenará todo automáticamente.</p>

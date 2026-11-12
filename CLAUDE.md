@@ -14,7 +14,7 @@ Todo se muestra en una ventana **sin bordes, transparente, redimensionable, arra
 
 ## Ramas y releases
 
-- **Una rama por plataforma**, con el nombre de la plataforma (`twitch`, luego `kick`, `youtube`…), y **una release por cada plataforma añadida**. Versiones: 0.2.0 = solo SSN, 0.3.0 = Twitch (publicada), 0.4.0 = Kick.
+- **Una rama por plataforma**, con el nombre de la plataforma (`twitch`, luego `kick`, `youtube`…), y **una release por cada plataforma añadida**. Versiones: 0.2.0 = solo SSN, 0.3.0 = Twitch, 0.4.0 = Kick (publicadas), 0.5.0 = YouTube.
 - Tras terminar una plataforma: tests, prueba en vivo, commit en su rama, push y AppImage (`npm run build:appimage`). Fusionar en master y publicar la release solo cuando el usuario lo confirme.
 - El remoto `origin` es un Gitea/Forgejo propio (git.dark-pi.net).
 
@@ -40,6 +40,9 @@ src/sources/twitch-eventsub.js EventSub por WebSocket: AutoMod (automod.message.
 src/sources/kick.js          Conector de Kick: API pública del canal + Pusher (sin cuenta), 7TV, avisos
 src/sources/kick-parse.js    Puro y testeado: normalizeKickChannel, parseKickContent ([emote:id:nombre]), insignias
 ui/badges/kick/*.svg         Iconos propios de las insignias clásicas de Kick (vienen sin imagen)
+src/sources/youtube.js       Conector de YouTube: busca el directo del canal y sondea el chat (sin cuenta ni claves)
+src/sources/youtube-parse.js Puro y testeado: normalizeYoutubeTarget, parseLivePage, acciones del chat -> eventos
+ui/badges/youtube/*.svg      Iconos propios: propietario, moderador, verificado (miembro = imagen del canal)
 ui/chat.html/.css/.js     Render del chat propio (modo plataformas)
 ui/settings.html/.css/.js Ventana "Apariencia…": formulario, importar URL de SSN, vista previa en vivo
 ui/frame.html             Marco de la ventana del chat (borde, fondo chroma, esquinas); estilo inyectado con frameCss()
@@ -94,6 +97,16 @@ test/config.test.js       Tests de config (node --test)
 - 7TV funciona con Kick por **user_id** (`7tv.io/v3/users/kick/<user_id>`), no por id de canal.
 - **Permisos de Claude Code**: el clasificador bloqueó probar Kick (lo consideró acceso a terceros). El usuario añadió reglas en `.claude/settings.local.json` (no se sube): scripts `node …/scratchpad/kick*`, `npm start`, `npm test` y `env -u ELECTRON_RUN_AS_NODE node_modules/electron/dist/electron *`. Para pruebas de la app, que el script fije `XDG_CONFIG_HOME` él mismo (así el comando encaja con la regla).
 
+## YouTube
+
+- **Sin cuenta ni claves**, como la web de YouTube (la API oficial tiene cuota diaria: descartada). El chat va ligado a cada **directo**, no al canal: el usuario escribe `@canal` (o URL de canal / de un directo) y la app busca el directo activo.
+- Objetivos (`normalizeYoutubeTarget`): `@handle` (minúsculas), `channel/UC…` o `v:VIDEOID`. Se guardan así en `sources.youtube.channels`.
+- Flujo (`YoutubeTarget`): `GET youtube.com/<objetivo>/live` (o `watch?v=`) → de la página: `<link rel="canonical" …watch?v=ID>`, `"isLive":true`, `INNERTUBE_CLIENT_VERSION` y la continuación de `liveChatRenderer`. Luego `POST youtubei/v1/live_chat/get_live_chat` con `{context:{client:{clientName:"WEB", clientVersion}}, continuation}`. La primera respuesta es el chat **destacado**: se cambia a "Chat en directo" con la continuación del `viewSelector` (`allMessagesContinuation`). Sondeo cada 3 s (o `timedContinuationData.timeoutMs`).
+- **No se falsifica el User-Agent**: `youtube.com/live_chat` sin cabecera de navegador responde "navegador antiguo", por eso se usa la página del directo (que sí carga) + la API interna con JSON normal. El clasificador de permisos considera eludir protecciones falsificar cabeceras de navegador: no hacerlo.
+- Sin directo: estado `offline` ("se conectará solo cuando empiece") y se vuelve a mirar cada 60 s. Si el chat deja de dar continuación, el directo ha terminado → vuelta a esperar. Los ids ya emitidos se recuerdan (`seen`) porque la primera respuesta repite mensajes recientes.
+- Acciones: `liveChatTextMessageRenderer` (emojis normales como carácter; personalizados `isCustomEmoji` como imagen), Super Chat (`liveChatPaidMessageRenderer`, color ARGB → `--notice`), Super Sticker, miembros e hitos (`liveChatMembershipItemRenderer`), subs regaladas (`…GiftPurchaseAnnouncementRenderer` / `…GiftRedemption…`), regalos (`giftMessageViewModel`), borrados (`removeChatItemAction` / `markChatItemAsDeletedAction`), por autor (`…ByAuthor…` → `clear-user`), `replaceChatItemAction`. YouTube no tiene colores de usuario: color por hash.
+- Insignias: `authorBadges[].liveChatAuthorBadgeRenderer`: `icon.iconType` OWNER / MODERATOR / VERIFIED → iconos propios; `customThumbnail` = insignia de miembro del canal.
+
 ## Sesión de Twitch y AutoMod (opcional)
 
 - **Dos formas de conectar Twitch** (`sources.twitch.useAccount`): **con mi cuenta** → el canal es el del usuario que inicia sesión (automático) y hay AutoMod; **sin cuenta** → canales escritos a mano, solo lectura, sin AutoMod. Los canales efectivos los calcula `SourceManager.twitchChannels(sources)` (úsalo siempre, no `sources.twitch.channels` directamente). Por defecto: con cuenta, salvo que ya hubiera canales escritos. La sesión y la lista se conservan al alternar. Al iniciar/cerrar sesión se reaplica la config y se reenvía el estilo al chat.
@@ -129,7 +142,8 @@ Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm
 
 ## Estado actual
 
-- 🚧 Rama `kick` (v0.4.0): Kick sin cuenta. Probado en vivo (canal inexistente, canal en directo, mensajes, emotes, insignias, respuestas). Pendiente: que el usuario lo pruebe, PR y release.
+- 🚧 Rama `youtube` (v0.5.0): YouTube sin cuenta. Probado en vivo (canal inexistente, canal en directo con 63 mensajes en 20 s, emojis personalizados, canal sin directo → espera). Super Chats/miembros/insignias probados solo con tests (no aparecieron en vivo). Pendiente: que el usuario lo pruebe, PR y release.
+- ✅ v0.4.0 (Kick) fusionada y publicada.
 - ✅ v0.3.0 (Twitch) fusionada y publicada como release en el Forgejo (`fj release create`; `fj release view` busca por nombre, no por etiqueta).
 - 🚧 AutoMod con sesión: hecho y probado sin sesión (render, hover, errores, tests). Client ID incluido; Twitch acepta el inicio del flujo. Pendiente: que el usuario inicie sesión y lo pruebe con un mensaje retenido real. La app está registrada como **Público** (comprobado en la consola; la `verification_uri` devuelta no lleva `public=true` aunque el ejemplo de la documentación sí, y es normal).
 - 🚧 Rama `twitch` (v0.3.0): chat propio con Twitch. Probado en vivo con canales reales (mensajes, colores, insignias, emotes 7TV, añadir canal desde Apariencia, canal inexistente, cambios de aspecto sin perder mensajes). Pendiente: que el usuario lo pruebe con su canal, fusionar en master y publicar release (falta saber cómo publicar en su Gitea: token o `tea`).

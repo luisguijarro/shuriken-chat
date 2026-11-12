@@ -18,6 +18,7 @@ const { TwitchSource } = require("./twitch");
 const { TwitchAssets } = require("./twitch-assets");
 const { TwitchEventSub } = require("./twitch-eventsub");
 const { KickSource } = require("./kick");
+const { YoutubeSource } = require("./youtube");
 
 const BACKLOG = 150; // mensajes que se reenvían si se recarga la página del chat
 
@@ -34,6 +35,7 @@ class SourceManager extends EventEmitter {
     this.statuses = new Map(); // "plataforma:canal" -> último evento de estado
     this.twitch = null;
     this.kick = null;
+    this.youtube = null;
     this.twitchAssets = new TwitchAssets();
   }
 
@@ -60,11 +62,17 @@ class SourceManager extends EventEmitter {
     return sources.mode === "native" ? sources.kick.channels : [];
   }
 
+  /** Canales (o directos) de YouTube que se leen (siempre sin cuenta). */
+  youtubeChannels(sources) {
+    return sources.mode === "native" ? sources.youtube.channels : [];
+  }
+
   /** Todos los canales activos, como { platform, channel } (para el panel de estado del chat). */
   allChannels(sources) {
     return [
       ...this.twitchChannels(sources).map((channel) => ({ platform: "twitch", channel })),
       ...this.kickChannels(sources).map((channel) => ({ platform: "kick", channel })),
+      ...this.youtubeChannels(sources).map((channel) => ({ platform: "youtube", channel })),
     ];
   }
 
@@ -109,6 +117,18 @@ class SourceManager extends EventEmitter {
     } else if (this.kick) {
       this.kick.stop();
       this.kick = null;
+    }
+    // YouTube
+    const ytChannels = this.youtubeChannels(sources);
+    if (ytChannels.length) {
+      if (!this.youtube) {
+        this.youtube = new YoutubeSource();
+        this.youtube.on("event", (ev) => this.push(ev));
+      }
+      this.youtube.setChannels(ytChannels);
+    } else if (this.youtube) {
+      this.youtube.stop();
+      this.youtube = null;
     }
     // Fuera los mensajes de canales que ya no seguimos.
     const keep = new Set(this.allChannels(sources).map((c) => `${c.platform}:${c.channel}`));
@@ -163,6 +183,8 @@ class SourceManager extends EventEmitter {
     this.eventsub = null;
     if (this.kick) this.kick.stop();
     this.kick = null;
+    if (this.youtube) this.youtube.stop();
+    this.youtube = null;
   }
 }
 

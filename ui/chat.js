@@ -118,7 +118,11 @@ function renderParts(parts) {
   return span;
 }
 
-const PLATFORMS = { twitch: "Twitch", kick: "Kick" }; // iconos en ui/platforms/<plataforma>.svg
+const PLATFORMS = { twitch: "Twitch", kick: "Kick", youtube: "YouTube" }; // iconos en ui/platforms/<plataforma>.svg
+
+/** Cómo se nombra un canal en los avisos: "#canal" en Twitch, tal cual en el resto. */
+const channelLabel = (platform, channel) =>
+  platform === "twitch" ? `#${channel}` : String(channel).startsWith("v:") ? "el directo" : channel;
 
 /** Icono de la plataforma de origen (se oculta con la opción, sin volver a pintar). */
 function platformIcon(platform) {
@@ -164,6 +168,9 @@ function renderMessage(ev) {
 
 function renderNotice(ev) {
   const div = el("div", "msg notice");
+  // Super Chats: el color de su importe, como en YouTube.
+  if (ev.color && /^#[0-9a-f]{6}$/i.test(ev.color)) div.style.setProperty("--notice", ev.color);
+  if (ev.kind) div.dataset.kind = ev.kind;
   const system = el("span", "system");
   const icon = platformIcon(ev.platform);
   if (icon) system.append(icon);
@@ -302,11 +309,12 @@ function renderWaiting() {
     const st = statuses.get(`${platform}:${channel}`);
     const state = st ? st.state : "connecting";
     const line = el("div", "line " + state);
+    const label = channelLabel(platform, channel);
     const text = {
-      connected: `#${channel}: conectado. Esperando mensajes…`,
-      connecting: `Conectando a #${channel}…`,
-      disconnected: `#${channel}: desconectado, reintentando…`,
-    }[state] || (st && st.text) || `#${channel}`;
+      connected: `${label}: conectado. Esperando mensajes…`,
+      connecting: (st && st.text) || `Conectando a ${label}…`,
+      disconnected: `${label}: desconectado, reintentando…`,
+    }[state] || (st && st.text) || label;
     line.append(el("span", "dot"), el("span", null, text));
     waiting.append(line);
   }

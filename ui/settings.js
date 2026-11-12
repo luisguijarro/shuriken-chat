@@ -155,9 +155,26 @@ function normalizeKick(value) {
   return /^[a-z0-9][a-z0-9-]{1,39}$/.test(c) ? c : null;
 }
 
+/** Igual que normalizeYoutubeTarget en src/sources/youtube-parse.js. */
+function normalizeYoutube(value) {
+  let s = String(value || "").trim();
+  if (!s) return null;
+  let m = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|live\/|shorts\/)|youtu\.be\/)([\w-]{11})(?![\w-])/i.exec(s);
+  if (m) return "v:" + m[1];
+  m = /youtube\.com\/channel\/(UC[\w-]{22})(?![\w-])/i.exec(s);
+  if (m) return "channel/" + m[1];
+  s = s.replace(/^https?:\/\/((www|m)\.)?youtube\.com\//i, "").split(/[/?#]/)[0];
+  if (!s.startsWith("@")) s = "@" + s;
+  return /^@[\w.-]{3,30}$/.test(s) ? s.toLowerCase() : null;
+}
+
 const twitchList = new ChannelList({
   id: "twitch", platform: "Twitch", prefix: "#", normalize: normalizeTwitch, checkCmd: "check_twitch_channel",
   invalidMsg: "Nombre no válido: solo letras, números y _ (máx. 25).",
+});
+const youtubeList = new ChannelList({
+  id: "youtube", platform: "YouTube", prefix: "", normalize: normalizeYoutube, checkCmd: "check_youtube_channel",
+  invalidMsg: "No válido: escribe @canal o pega la URL del canal o del directo.",
 });
 const kickList = new ChannelList({
   id: "kick", platform: "Kick", prefix: "", normalize: normalizeKick, checkCmd: "check_kick_channel",
@@ -276,6 +293,7 @@ function fill(view) {
   setTwitchMode(view.sources.twitch.useAccount ? "account" : "anonymous");
   twitchList.set(view.sources.twitch.channels);
   kickList.set(view.sources.kick.channels);
+  youtubeList.set(view.sources.youtube.channels);
   $("twitchClientId").value = view.sources.twitch.clientId || "";
   $("session").value = a.session;
   ensureOption($("language"), a.language);
@@ -313,6 +331,7 @@ function collect() {
         clientId: $("twitchClientId").value.trim(),
       },
       kick: { channels: [...kickList.channels] },
+      youtube: { channels: [...youtubeList.channels] },
     },
     appearance: {
       baseUrl: $("baseUrl").value.trim(),
@@ -442,7 +461,7 @@ async function load() {
 }
 
 document.addEventListener("input", (e) => {
-  if (["importUrl", "twitchInput", "kickInput"].includes(e.target.id)) return;
+  if (["importUrl", "twitchInput", "kickInput", "youtubeInput"].includes(e.target.id)) return;
   if (e.target.name === "mode") setMode(getMode());
   if (e.target.name === "twitchMode") setTwitchMode(getTwitchMode());
   schedulePreview();

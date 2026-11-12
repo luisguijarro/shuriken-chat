@@ -7,7 +7,7 @@
 <p align="center">
   El chat de tus directos flotando en tu escritorio.<br />
   Una ventana sin bordes y transparente que lee el chat de tus plataformas
-  (<b>Twitch</b> y <b>Kick</b>) o, como respaldo, el de
+  (<b>Twitch</b>, <b>Kick</b> y <b>YouTube</b>) o, como respaldo, el de
   <a href="https://socialstream.ninja">Social Stream Ninja</a>.
 </p>
 
@@ -17,7 +17,7 @@
 
 ---
 
-> **Estado:** en desarrollo (v0.4.0). Plataformas soportadas: **Twitch** y **Kick**. Próxima: YouTube.
+> **Estado:** en desarrollo (v0.5.0). Plataformas soportadas: **Twitch**, **Kick** y **YouTube**.
 >
 > Shuriken Chat es un proyecto independiente y **no está afiliado** a Social Stream Ninja.
 
@@ -26,6 +26,7 @@
 Shuriken Chat muestra el chat de tus directos **en tu escritorio**, para leerlo mientras juegas o trabajas sin abrir el navegador ni mirar OBS. Tiene dos modos:
 
 - **Plataformas** (recomendado): la app lee el chat directamente. Solo escribes el nombre de tu canal: **sin cuenta, sin claves y sin configurar nada más**.
+  - **YouTube**: sin cuenta ni claves. Escribes tu canal y el chat se conecta solo cuando empiezas un directo. Emojis del canal, Super Chats (con su color), Super Stickers, miembros nuevos e hitos, suscripciones regaladas e insignias de propietario, moderador, verificado y miembro.
   - **Kick**: sin cuenta. Emotes de Kick y de **7TV**, insignias (suscriptor del canal, moderador, VIP, niveles…), colores, respuestas, subs, regalos, raids y KICKs. Los mensajes borrados y los baneos desaparecen.
   - **Twitch**: emotes del canal (incluidos los de suscriptor), **7TV, BTTV y FFZ** (también los que se superponen), insignias oficiales, colores de usuario, /me, respuestas, subs, raids y anuncios. Los mensajes borrados y los baneos desaparecen como en Twitch.
 - **Social Stream Ninja**: muestra tu dock de SSN tal cual. Útil como respaldo o para plataformas que aún no soporta la app.
@@ -109,6 +110,7 @@ Shuriken Chat muestra el chat de tus directos **en tu escritorio**, para leerlo 
 | Fuente del chat | Plataformas (la app lee el chat) o Social Stream Ninja |
 | Twitch | Con tu cuenta (tu canal + revisión del AutoMod) o sin cuenta (canales a seguir) |
 | Kick | Canales a seguir (puedes añadir varios) |
+| YouTube | Canales (`@canal`) o directos concretos; se conecta solo al empezar el directo |
 | Importar *(SSN)* | Pega una URL de SSN y rellena el formulario |
 | Conexión *(SSN)* | ID de sesión e idioma |
 | Aspecto del chat | Escala del texto, margen lateral, modo oscuro, burbujas, brillo en el texto, colores aleatorios, difuminar mensajes antiguos, ocultar la barra de controles de SSN |
@@ -246,7 +248,7 @@ shuriken-chat/
 ├── src/
 │   ├── main.js                  Ventanas, menús, bandeja, IPC
 │   ├── config.js                Configuración y generación de la URL de SSN
-│   ├── sources/                 Conectores de plataformas (Twitch, Kick) y emotes/insignias
+│   ├── sources/                 Conectores de plataformas (Twitch, Kick, YouTube) y emotes/insignias
 │   ├── preload-chat.js          Script aislado de la ventana del chat
 │   └── preload-settings.js      Puente de la ventana de Apariencia
 ├── scripts/start.js             Lanzador de desarrollo (npm start)
