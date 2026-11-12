@@ -376,6 +376,8 @@ function applyStyle(s) {
   document.documentElement.style.setProperty("--scale", String(style.scale || 1));
   document.documentElement.style.setProperty("--side", `${style.sidePadding || 0}px`);
   empty.hidden = (style.channels || []).length > 0;
+  document.getElementById("emptyWhat").textContent =
+    style.needs === "login" ? "e inicia sesión con tu cuenta de Twitch." : "y añade tu canal de Twitch.";
   renderWaiting();
   keepAtBottom();
 }

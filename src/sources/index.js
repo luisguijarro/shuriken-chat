@@ -41,10 +41,22 @@ class SourceManager extends EventEmitter {
     auth.on("change", () => this.lastSources && this.apply(this.lastSources));
   }
 
+  /**
+   * Canales de Twitch que se leen de verdad:
+   *  - con cuenta: el canal del usuario que ha iniciado sesión (ninguno si no ha iniciado sesión);
+   *  - sin cuenta: los escritos a mano.
+   */
+  twitchChannels(sources) {
+    if (sources.mode !== "native") return [];
+    if (!sources.twitch.useAccount) return sources.twitch.channels;
+    const auth = this.twitchAuth;
+    return auth && auth.loggedIn && auth.session.login ? [auth.session.login.toLowerCase()] : [];
+  }
+
   /** Aplica la configuración `sources`: arranca, actualiza o para conectores. */
   apply(sources) {
     this.lastSources = sources;
-    const channels = sources.mode === "native" ? sources.twitch.channels : [];
+    const channels = this.twitchChannels(sources);
     if (channels.length) {
       if (!this.twitch) {
         this.twitch = new TwitchSource(this.twitchAssets);
@@ -55,8 +67,8 @@ class SourceManager extends EventEmitter {
       this.twitch.stop();
       this.twitch = null;
     }
-    // Moderación (AutoMod): solo con sesión iniciada.
-    if (channels.length && this.twitchAuth && this.twitchAuth.loggedIn) {
+    // Moderación (AutoMod): solo en el modo "con mi cuenta" y con sesión iniciada.
+    if (channels.length && sources.twitch.useAccount && this.twitchAuth && this.twitchAuth.loggedIn) {
       if (!this.eventsub) {
         this.eventsub = new TwitchEventSub(this.twitchAuth, this.twitchAssets);
         this.eventsub.on("event", (ev) => this.push(ev));

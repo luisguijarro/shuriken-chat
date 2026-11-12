@@ -130,7 +130,10 @@ footer .msg { flex: 1; margin: 0; }
 
 /* ---------- Fuente del chat ---------- */
 body.mode-native .ssn-only,
-body.mode-ssn .native-only { display: none !important; }
+body.mode-ssn .native-only,
+body.tw-anon .tw-account-only,
+body.tw-account .tw-anon-only { display: none !important; }
+.tw-account-only, .tw-anon-only { margin-top: 12px; }
 
 .chips { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .chips:empty::before { content: "Sin canales todavía."; color: var(--muted, #999); font-size: 13px; }

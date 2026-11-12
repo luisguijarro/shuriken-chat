@@ -98,11 +98,13 @@ test("mapeo de emotes de 7TV, BTTV y FFZ", () => {
 });
 
 test("config: fuentes por defecto y canales normalizados", () => {
-  assert.deepStrictEqual(config.normalize({}).sources, { mode: "native", twitch: { channels: [], clientId: "" } });
+  assert.deepStrictEqual(config.normalize({}).sources, { mode: "native", twitch: { useAccount: true, channels: [], clientId: "" } });
   // Quien ya usaba SSN sigue en SSN al actualizar.
   assert.strictEqual(config.normalize({ appearance: { session: "s" } }).sources.mode, "ssn");
   const s = config.normalize({ sources: { mode: "native", twitch: { channels: ["XQC", "#xqc", "mal nombre", "ibai"] } } }).sources;
-  assert.deepStrictEqual(s, { mode: "native", twitch: { channels: ["xqc", "ibai"], clientId: "" } });
+  // Quien ya tenía canales escritos sigue "sin cuenta".
+  assert.deepStrictEqual(s, { mode: "native", twitch: { useAccount: false, channels: ["xqc", "ibai"], clientId: "" } });
+  assert.strictEqual(config.normalize({ sources: { twitch: { useAccount: true, channels: ["xqc"] } } }).sources.twitch.useAccount, true);
   assert.strictEqual(config.normalize({ sources: { twitch: { clientId: " abc123 <x>" } } }).sources.twitch.clientId, "abc123x");
   assert.strictEqual(config.normalize({ sources: { mode: "raro" } }).sources.mode, "native");
 });
@@ -161,4 +163,18 @@ test("sesión de Twitch: se guarda cifrada y se recupera; sin llavero, en claro 
   plain.save();
   assert.ok(!fs.existsSync(path.join(dir, "twitch-auth.json")), "cerrar sesión borra el fichero");
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("canales que se leen: con cuenta, el del usuario; sin cuenta, los escritos", () => {
+  const { SourceManager } = require("../src/sources");
+  const { EventEmitter } = require("events");
+  const auth = Object.assign(new EventEmitter(), { loggedIn: false, session: null });
+  const sm = new SourceManager(auth);
+  const src = (useAccount, mode = "native") => ({ mode, twitch: { useAccount, channels: ["xqc", "ibai"], clientId: "" } });
+  assert.deepStrictEqual(sm.twitchChannels(src(false)), ["xqc", "ibai"]);
+  assert.deepStrictEqual(sm.twitchChannels(src(true)), [], "con cuenta y sin sesión: ningún canal");
+  auth.loggedIn = true;
+  auth.session = { login: "MyGameDevVlog" };
+  assert.deepStrictEqual(sm.twitchChannels(src(true)), ["mygamedevvlog"]);
+  assert.deepStrictEqual(sm.twitchChannels(src(true, "ssn")), [], "en modo SSN no se lee nada");
 });

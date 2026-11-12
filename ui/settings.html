@@ -26,31 +26,38 @@
 
     <section class="native-only">
       <h2>Twitch</h2>
-      <p class="muted">Escribe el nombre del canal (o pega su URL). No hace falta cuenta.</p>
-      <div class="row">
-        <input id="twitchInput" type="text" placeholder="nombre_del_canal" spellcheck="false" autocomplete="off" />
-        <button id="twitchAdd" type="button">Añadir</button>
+      <div class="checks">
+        <label><input type="radio" name="twitchMode" value="account" /> <span><b>Con mi cuenta</b> — inicias sesión y se usa tu canal. Permite revisar el AutoMod.</span></label>
+        <label><input type="radio" name="twitchMode" value="anonymous" /> <span><b>Sin cuenta</b> — escribes el nombre del canal (o varios). Solo lectura.</span></label>
       </div>
-      <p id="twitchMsg" class="msg"></p>
-      <ul id="twitchList" class="chips"></ul>
 
-      <h3>Cuenta de Twitch <small class="muted">(opcional)</small></h3>
-      <p class="muted">Inicia sesión para revisar desde el chat los mensajes que retiene el AutoMod en tus canales (o en los que moderas).</p>
-      <div id="twitchAccount" class="account"></div>
-      <div id="twitchLogin" class="login-box" hidden>
-        <p>Se ha abierto Twitch en tu navegador. Si no, entra en
-          <a id="twitchVerify" href="https://www.twitch.tv/activate" target="_blank" rel="noopener">twitch.tv/activate</a>
-          e introduce este código:</p>
-        <div id="twitchCode" class="code"></div>
-        <button id="twitchCancel" type="button" class="ghost">Cancelar</button>
+      <div class="tw-account-only">
+        <div id="twitchAccount" class="account"></div>
+        <div id="twitchLogin" class="login-box" hidden>
+          <p>Se ha abierto Twitch en tu navegador. Si no, entra en
+            <a id="twitchVerify" href="https://www.twitch.tv/activate" target="_blank" rel="noopener">twitch.tv/activate</a>
+            e introduce este código:</p>
+          <div id="twitchCode" class="code"></div>
+          <button id="twitchCancel" type="button" class="ghost">Cancelar</button>
+        </div>
+        <p id="authMsg" class="msg"></p>
+        <details id="clientIdBox">
+          <summary>Client ID de la app de Twitch</summary>
+          <p class="muted">Ya viene incluido: solo cámbialo si usas tu propia app (tipo <b>Público</b>) de
+            <a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noopener">dev.twitch.tv/console</a>. No es una contraseña.</p>
+          <input id="twitchClientId" type="text" spellcheck="false" autocomplete="off" placeholder="(el incluido en la app)" />
+        </details>
       </div>
-      <p id="authMsg" class="msg"></p>
-      <details id="clientIdBox">
-        <summary>Client ID de la app de Twitch</summary>
-        <p class="muted">Hace falta para iniciar sesión. Se obtiene registrando una aplicación de tipo <b>Público</b> en
-          <a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noopener">dev.twitch.tv/console</a>. No es una contraseña.</p>
-        <input id="twitchClientId" type="text" spellcheck="false" autocomplete="off" placeholder="p. ej. abcd1234…" />
-      </details>
+
+      <div class="tw-anon-only">
+        <p class="muted">Escribe el nombre del canal (o pega su URL).</p>
+        <div class="row">
+          <input id="twitchInput" type="text" placeholder="nombre_del_canal" spellcheck="false" autocomplete="off" />
+          <button id="twitchAdd" type="button">Añadir</button>
+        </div>
+        <p id="twitchMsg" class="msg"></p>
+        <ul id="twitchList" class="chips"></ul>
+      </div>
     </section>
 
     <section class="ssn-only">

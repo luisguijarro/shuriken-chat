@@ -71,6 +71,13 @@ function normalizeTwitch(value) {
 }
 
 const getMode = () => (document.querySelector('input[name="mode"]:checked') || {}).value || "native";
+const getTwitchMode = () => (document.querySelector('input[name="twitchMode"]:checked') || {}).value || "account";
+
+function setTwitchMode(mode) {
+  for (const r of document.querySelectorAll('input[name="twitchMode"]')) r.checked = r.value === mode;
+  document.body.classList.toggle("tw-account", mode === "account");
+  document.body.classList.toggle("tw-anon", mode === "anonymous");
+}
 
 function setMode(mode) {
   for (const r of document.querySelectorAll('input[name="mode"]')) r.checked = r.value === mode;
@@ -150,13 +157,13 @@ function renderAuth() {
   const label = document.createElement("span");
   label.className = "grow";
   if (authState.loggedIn) {
-    label.append("Sesión iniciada como ");
+    label.append("Conectado a tu canal ");
     const b = document.createElement("b");
-    b.textContent = authState.login;
+    b.textContent = "#" + authState.login;
     label.append(b);
     line.append(label, button("Cerrar sesión", "ghost", logout));
   } else {
-    label.textContent = "Sin sesión: el chat se lee de forma anónima.";
+    label.textContent = "Inicia sesión y se usará tu canal automáticamente.";
     line.append(label, button("Iniciar sesión con Twitch", "", login));
   }
   box.append(line);
@@ -174,6 +181,7 @@ function renderAuth() {
     box.append(ul);
   }
   if (!authState.hasDefaultClientId && !$("twitchClientId").value.trim()) $("clientIdBox").open = true;
+  // Al cambiar de modo, Apariencia ya ha aplicado la vista previa; el chat se actualiza solo.
 }
 
 async function refreshAuth() {
@@ -222,6 +230,7 @@ function fill(view) {
   const a = view.appearance;
   const s = view.system;
   setMode(view.sources.mode);
+  setTwitchMode(view.sources.twitch.useAccount ? "account" : "anonymous");
   twitchChannels = [...view.sources.twitch.channels];
   $("twitchClientId").value = view.sources.twitch.clientId || "";
   renderChannels();
@@ -255,7 +264,14 @@ function fill(view) {
 
 function collect() {
   return {
-    sources: { mode: getMode(), twitch: { channels: [...twitchChannels], clientId: $("twitchClientId").value.trim() } },
+    sources: {
+      mode: getMode(),
+      twitch: {
+        useAccount: getTwitchMode() === "account",
+        channels: [...twitchChannels],
+        clientId: $("twitchClientId").value.trim(),
+      },
+    },
     appearance: {
       baseUrl: $("baseUrl").value.trim(),
       session: $("session").value.trim(),
@@ -386,6 +402,7 @@ async function load() {
 document.addEventListener("input", (e) => {
   if (e.target.id === "importUrl" || e.target.id === "twitchInput") return;
   if (e.target.name === "mode") setMode(getMode());
+  if (e.target.name === "twitchMode") setTwitchMode(getTwitchMode());
   schedulePreview();
 });
 

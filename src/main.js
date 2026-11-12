@@ -180,7 +180,9 @@ function pushChatStyle() {
     scale: a.scale,
     sidePadding: a.sidePadding,
     // Canales configurados: el chat muestra su estado mientras no hay mensajes.
-    channels: cfg.sources.twitch.channels.map((channel) => ({ platform: "twitch", channel })),
+    channels: sources.twitchChannels(cfg.sources).map((channel) => ({ platform: "twitch", channel })),
+    // Para el aviso de "sin canal": qué le falta al usuario.
+    needs: cfg.sources.twitch.useAccount ? "login" : "channel",
     twoLines: a.twoLines,
     showPlatform: a.showPlatform,
   });
@@ -621,12 +623,13 @@ function start() {
   });
   twitchAuth.on("change", () => {
     if (alive(settingsWin)) settingsWin.webContents.send("shuriken:auth-changed");
+    pushChatStyle(); // con cuenta, el canal cambia al iniciar o cerrar sesión
   });
   sources.apply(cfg.sources);
   createChatWindow();
   buildTray();
   // Primera vez (o sin nada que mostrar): abrir Apariencia.
-  const nothing = cfg.sources.mode === "native" ? !cfg.sources.twitch.channels.length : !cfg.appearance.session.trim();
+  const nothing = cfg.sources.mode === "native" ? !sources.twitchChannels(cfg.sources).length : !cfg.appearance.session.trim();
   if (nothing) openSettings();
 }
 
