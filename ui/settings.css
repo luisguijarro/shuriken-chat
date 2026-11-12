@@ -165,3 +165,4 @@ body.tw-account .tw-anon-only { display: none !important; }
 #clientIdBox { margin-top: 10px; }
 #clientIdBox summary { cursor: pointer; font-size: 13px; }
 #clientIdBox a { color: #bf94ff; }
+.chips.kick li { background: rgba(83, 252, 24, .12); border-color: rgba(83, 252, 24, .45); }

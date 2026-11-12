@@ -11,6 +11,8 @@ const { SourceManager } = require("./sources");
 const { lookupChannel } = require("./sources/twitch-assets");
 const { TwitchAuth, DEFAULT_CLIENT_ID } = require("./sources/twitch-auth");
 const { normalizeChannel } = require("./sources/twitch-parse");
+const { normalizeKickChannel } = require("./sources/kick-parse");
+const { fetchChannel: fetchKickChannel } = require("./sources/kick");
 
 const UI = path.join(__dirname, "..", "ui");
 const ICONS = path.join(__dirname, "..", "assets", "icons");
@@ -180,7 +182,7 @@ function pushChatStyle() {
     scale: a.scale,
     sidePadding: a.sidePadding,
     // Canales configurados: el chat muestra su estado mientras no hay mensajes.
-    channels: sources.twitchChannels(cfg.sources).map((channel) => ({ platform: "twitch", channel })),
+    channels: sources.allChannels(cfg.sources),
     // Para el aviso de "sin canal": qué le falta al usuario.
     needs: cfg.sources.twitch.useAccount ? "login" : "channel",
     twoLines: a.twoLines,
@@ -586,6 +588,18 @@ function registerIpc() {
   settingsCmd("twitch_login_cancel", () => twitchAuth.cancelLogin());
   settingsCmd("twitch_logout", () => twitchAuth.logout());
 
+  // ¿Existe este canal de Kick y está en directo?
+  settingsCmd("check_kick_channel", async ({ channel }) => {
+    const c = normalizeKickChannel(channel);
+    if (!c) return { exists: false };
+    try {
+      const info = await fetchKickChannel(c);
+      return info ? { exists: true, name: info.name, live: info.live } : { exists: false };
+    } catch (e) {
+      return { exists: null, error: e.message };
+    }
+  });
+
   // ¿Existe este canal de Twitch y está en directo?
   settingsCmd("check_twitch_channel", ({ channel }) => {
     const c = normalizeChannel(channel);
@@ -629,7 +643,7 @@ function start() {
   createChatWindow();
   buildTray();
   // Primera vez (o sin nada que mostrar): abrir Apariencia.
-  const nothing = cfg.sources.mode === "native" ? !sources.twitchChannels(cfg.sources).length : !cfg.appearance.session.trim();
+  const nothing = cfg.sources.mode === "native" ? !sources.allChannels(cfg.sources).length : !cfg.appearance.session.trim();
   if (nothing) openSettings();
 }
 

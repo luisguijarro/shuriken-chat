@@ -9,6 +9,7 @@ const os = require("os");
 const path = require("path");
 
 const { normalizeChannel } = require("./sources/twitch-parse");
+const { normalizeKickChannel } = require("./sources/kick-parse");
 
 const DEFAULT_BASE_URL = "https://socialstream.ninja/dock.html";
 
@@ -57,7 +58,9 @@ function normalizeSources(raw, appearance) {
   // Cómo se conecta Twitch: con la cuenta del usuario (su canal, + AutoMod) o sin cuenta
   // (canales escritos a mano). Por defecto, con cuenta, salvo que ya hubiera canales escritos.
   const useAccount = typeof obj(s.twitch).useAccount === "boolean" ? obj(s.twitch).useAccount : !channels.length;
-  return { mode, twitch: { useAccount, channels, clientId } };
+  const kickList = Array.isArray(obj(s.kick).channels) ? obj(s.kick).channels : [];
+  const kick = { channels: [...new Set(kickList.map(normalizeKickChannel).filter(Boolean))] };
+  return { mode, twitch: { useAccount, channels, clientId }, kick };
 }
 
 /** Opciones que requieren reiniciar la app. */
@@ -134,6 +137,7 @@ function userSettings(config) {
     sources: {
       mode: config.sources.mode,
       twitch: { ...config.sources.twitch, channels: [...config.sources.twitch.channels] },
+      kick: { channels: [...config.sources.kick.channels] },
     },
     appearance: { ...config.appearance },
     system: { ...config.system },

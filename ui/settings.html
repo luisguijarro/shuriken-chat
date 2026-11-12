@@ -60,6 +60,17 @@
       </div>
     </section>
 
+    <section class="native-only">
+      <h2>Kick</h2>
+      <p class="muted">Escribe el nombre del canal (o pega su URL). No hace falta cuenta.</p>
+      <div class="row">
+        <input id="kickInput" type="text" placeholder="nombre_del_canal" spellcheck="false" autocomplete="off" />
+        <button id="kickAdd" type="button">Añadir</button>
+      </div>
+      <p id="kickMsg" class="msg"></p>
+      <ul id="kickList" class="chips kick"></ul>
+    </section>
+
     <section class="ssn-only">
       <h2>Importar desde Social Stream Ninja</h2>
       <p class="muted">Pega la URL de tu dock (<code>dock.html?session=…</code>) y se rellenará todo automáticamente.</p>

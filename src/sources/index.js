@@ -17,6 +17,7 @@ const { EventEmitter } = require("events");
 const { TwitchSource } = require("./twitch");
 const { TwitchAssets } = require("./twitch-assets");
 const { TwitchEventSub } = require("./twitch-eventsub");
+const { KickSource } = require("./kick");
 
 const BACKLOG = 150; // mensajes que se reenvían si se recarga la página del chat
 
@@ -32,6 +33,7 @@ class SourceManager extends EventEmitter {
     this.backlog = [];
     this.statuses = new Map(); // "plataforma:canal" -> último evento de estado
     this.twitch = null;
+    this.kick = null;
     this.twitchAssets = new TwitchAssets();
   }
 
@@ -51,6 +53,19 @@ class SourceManager extends EventEmitter {
     if (!sources.twitch.useAccount) return sources.twitch.channels;
     const auth = this.twitchAuth;
     return auth && auth.loggedIn && auth.session.login ? [auth.session.login.toLowerCase()] : [];
+  }
+
+  /** Canales de Kick que se leen (siempre sin cuenta). */
+  kickChannels(sources) {
+    return sources.mode === "native" ? sources.kick.channels : [];
+  }
+
+  /** Todos los canales activos, como { platform, channel } (para el panel de estado del chat). */
+  allChannels(sources) {
+    return [
+      ...this.twitchChannels(sources).map((channel) => ({ platform: "twitch", channel })),
+      ...this.kickChannels(sources).map((channel) => ({ platform: "kick", channel })),
+    ];
   }
 
   /** Aplica la configuración `sources`: arranca, actualiza o para conectores. */
@@ -83,8 +98,20 @@ class SourceManager extends EventEmitter {
       this.eventsub = null;
       this.moderation = {};
     }
+    // Kick
+    const kickChannels = this.kickChannels(sources);
+    if (kickChannels.length) {
+      if (!this.kick) {
+        this.kick = new KickSource();
+        this.kick.on("event", (ev) => this.push(ev));
+      }
+      this.kick.setChannels(kickChannels);
+    } else if (this.kick) {
+      this.kick.stop();
+      this.kick = null;
+    }
     // Fuera los mensajes de canales que ya no seguimos.
-    const keep = new Set(channels.map((c) => "twitch:" + c));
+    const keep = new Set(this.allChannels(sources).map((c) => `${c.platform}:${c.channel}`));
     this.backlog = this.backlog.filter((ev) => keep.has(`${ev.platform}:${ev.channel}`));
     for (const k of [...this.statuses.keys()]) if (!keep.has(k)) this.statuses.delete(k);
   }
@@ -134,6 +161,8 @@ class SourceManager extends EventEmitter {
     this.twitch = null;
     if (this.eventsub) this.eventsub.stop();
     this.eventsub = null;
+    if (this.kick) this.kick.stop();
+    this.kick = null;
   }
 }
 

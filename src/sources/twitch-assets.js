@@ -167,4 +167,4 @@ async function lookupChannel(login) {
   }
 }
 
-module.exports = { TwitchAssets, lookupChannel, from7tv, fromBttv, fromFfzSets };
+module.exports = { TwitchAssets, lookupChannel, fetchJson, loadEmotes, from7tv, fromBttv, fromFfzSets };
