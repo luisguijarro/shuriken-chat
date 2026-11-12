@@ -1,4 +1,4 @@
-// Shuriken Chat: preload de la ventana "Apariencia…" (página local).
+// Shuriken Chat: preload de la ventana "Configuración…" (página local).
 "use strict";
 
 const { contextBridge, ipcRenderer } = require("electron");

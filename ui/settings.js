@@ -241,7 +241,7 @@ function renderAuth() {
     box.append(ul);
   }
   if (!authState.hasDefaultClientId && !$("twitchClientId").value.trim()) $("clientIdBox").open = true;
-  // Al cambiar de modo, Apariencia ya ha aplicado la vista previa; el chat se actualiza solo.
+  // Al cambiar de modo, Configuración ya ha aplicado la vista previa; el chat se actualiza solo.
 }
 
 async function refreshAuth() {

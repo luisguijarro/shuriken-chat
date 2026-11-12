@@ -76,7 +76,7 @@ class TwitchEventSub extends EventEmitter {
     this.ws = null;
   }
 
-  /** Estado de la moderación por canal (para la ventana de Apariencia). */
+  /** Estado de la moderación por canal (para la ventana de Configuración). */
   report() {
     return Object.fromEntries(this.subscribed);
   }

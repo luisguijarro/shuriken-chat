@@ -55,7 +55,7 @@ class TwitchSource extends EventEmitter {
     this.joinTimers.set(channel, setTimeout(() => {
       this.joinTimers.delete(channel);
       if (!this.joined.has(channel) && this.channels.has(channel)) {
-        this.status(channel, "error", `El canal #${channel} no existe en Twitch (o está suspendido). Revisa el nombre en Apariencia.`);
+        this.status(channel, "error", `El canal #${channel} no existe en Twitch (o está suspendido). Revisa el nombre en Configuración.`);
       }
     }, JOIN_TIMEOUT_MS));
   }

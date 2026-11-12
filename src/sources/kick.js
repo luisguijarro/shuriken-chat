@@ -96,7 +96,7 @@ class KickSource extends EventEmitter {
     }
     if (!this.channels.has(slug) || this.stopped) return;
     if (!info || !info.chatroomId) {
-      this.status(slug, "error", `El canal ${slug} no existe en Kick. Revisa el nombre en Apariencia.`);
+      this.status(slug, "error", `El canal ${slug} no existe en Kick. Revisa el nombre en Configuración.`);
       return;
     }
     this.info.set(slug, info);

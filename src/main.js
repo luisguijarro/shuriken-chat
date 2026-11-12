@@ -262,7 +262,7 @@ function quit() {
 function contextMenu() {
   const pct = Math.round(cfg.window.zoom * 100);
   return Menu.buildFromTemplate([
-    { label: "Apariencia…", click: openSettings },
+    { label: "Configuración…", click: openSettings },
     {
       label: `Zoom (${pct}%)`,
       submenu: [
@@ -306,7 +306,7 @@ function buildTray() {
       checked: clickThrough,
       click: () => setClickThrough(!clickThrough),
     },
-    { label: "Apariencia…", click: openSettings },
+    { label: "Configuración…", click: openSettings },
     { type: "separator" },
     { label: "Salir", click: quit },
   ]));
@@ -379,7 +379,7 @@ function openSettings() {
     height: 780,
     minWidth: 420,
     minHeight: 400,
-    title: "Shuriken Chat · Apariencia",
+    title: "Shuriken Chat · Configuración",
     icon: path.join(ICONS, "icon.png"),
     autoHideMenuBar: true,
     webPreferences: {
@@ -644,7 +644,7 @@ function start() {
   sources.on("event", (ev) => {
     if (nativeChat()) chatWc()?.send("shuriken:chat-event", ev);
   });
-  // Estado del AutoMod por canal: se avisa a Apariencia en cuanto se conoce.
+  // Estado del AutoMod por canal: se avisa a Configuración en cuanto se conoce.
   sources.on("moderation", () => {
     if (alive(settingsWin)) settingsWin.webContents.send("shuriken:auth-changed");
   });
@@ -655,7 +655,7 @@ function start() {
   sources.apply(cfg.sources);
   createChatWindow();
   buildTray();
-  // Primera vez (o sin nada que mostrar): abrir Apariencia.
+  // Primera vez (o sin nada que mostrar): abrir Configuración.
   const nothing = cfg.sources.mode === "native" ? !sources.allChannels(cfg.sources).length : !cfg.appearance.session.trim();
   if (nothing) openSettings();
 }

@@ -20,7 +20,7 @@ async function getText(url) {
   return { status: res.status, text: await res.text() };
 }
 
-/** Datos públicos de un canal (para Apariencia): ¿existe?, nombre y si está en directo. */
+/** Datos públicos de un canal (para Configuración): ¿existe?, nombre y si está en directo. */
 async function lookupYoutube(target) {
   if (target.startsWith("v:")) {
     const page = parseLivePage((await getText(liveUrl(target))).text);
@@ -75,7 +75,7 @@ class YoutubeTarget {
     }
     if (this.stopped) return;
     if (res.status === 404) {
-      return this.status("error", `El canal ${this.target} no existe en YouTube. Revisa el nombre en Apariencia.`);
+      return this.status("error", `El canal ${this.target} no existe en YouTube. Revisa el nombre en Configuración.`);
     }
     const page = parseLivePage(res.text);
     if (!page.isLive || !page.continuation || !page.clientVersion) {
