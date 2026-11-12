@@ -11,7 +11,7 @@ const path = require("path");
 const { EventEmitter } = require("events");
 
 /** Client ID de la app registrada en dev.twitch.tv (es público: se puede incluir en el código). */
-const DEFAULT_CLIENT_ID = "";
+const DEFAULT_CLIENT_ID = "ydsw4s6rvi9qild7izjdryl3zvtdb6";
 
 // Permisos que pedimos. Al añadir alguno, los usuarios tendrán que volver a iniciar sesión.
 const SCOPES = ["moderator:manage:automod"];
