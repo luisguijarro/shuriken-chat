@@ -115,7 +115,7 @@ Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm
 
 ## Estado actual
 
-- 🚧 AutoMod con sesión: hecho y probado sin sesión (render, hover, errores, tests). Client ID incluido; Twitch acepta el inicio del flujo. Pendiente: que el usuario inicie sesión y lo pruebe con un mensaje retenido real. Ojo: la `verification_uri` devuelta no lleva `public=true`; si el canje del token falla pidiendo secreto, la app está registrada como Confidential y hay que cambiarla a Public.
+- 🚧 AutoMod con sesión: hecho y probado sin sesión (render, hover, errores, tests). Client ID incluido; Twitch acepta el inicio del flujo. Pendiente: que el usuario inicie sesión y lo pruebe con un mensaje retenido real. La app está registrada como **Público** (comprobado en la consola; la `verification_uri` devuelta no lleva `public=true` aunque el ejemplo de la documentación sí, y es normal).
 - 🚧 Rama `twitch` (v0.3.0): chat propio con Twitch. Probado en vivo con canales reales (mensajes, colores, insignias, emotes 7TV, añadir canal desde Apariencia, canal inexistente, cambios de aspecto sin perder mensajes). Pendiente: que el usuario lo pruebe con su canal, fusionar en master y publicar release (falta saber cómo publicar en su Gitea: token o `tea`).
 - ✅ master (v0.2.0): modo SSN sobre Electron, ya publicado en `origin`.
 - `src-tauri/` se queda en el repo (el usuario dijo que da igual).
