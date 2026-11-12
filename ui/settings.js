@@ -204,8 +204,7 @@ async function login() {
     message("authMsg", cleanError(e), "error");
   }
   $("twitchLogin").hidden = true;
-  await refreshAuth();
-  setTimeout(refreshAuth, 5000); // el estado del AutoMod por canal llega unos segundos después
+  await refreshAuth(); // el estado del AutoMod por canal llega después, por onAuthChanged
 }
 
 async function logout() {
@@ -438,4 +437,5 @@ $("revert").addEventListener("click", async () => {
   message("status", "Cambios descartados", "");
 });
 
+if (window.shuriken.onAuthChanged) window.shuriken.onAuthChanged(refreshAuth);
 load().then(refreshAuth).catch((e) => message("status", String(e), "error"));

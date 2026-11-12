@@ -13,4 +13,8 @@ contextBridge.exposeInMainWorld("shuriken", {
     COMMANDS.has(cmd)
       ? ipcRenderer.invoke("shuriken:" + cmd, args || {})
       : Promise.reject(new Error("comando desconocido: " + cmd)),
+  // Avisa cuando cambia la sesión de Twitch o el estado del AutoMod.
+  onAuthChanged: (cb) => {
+    if (typeof cb === "function") ipcRenderer.on("shuriken:auth-changed", () => cb());
+  },
 });

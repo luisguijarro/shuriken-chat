@@ -615,6 +615,13 @@ function start() {
   sources.on("event", (ev) => {
     if (nativeChat()) chatWc()?.send("shuriken:chat-event", ev);
   });
+  // Estado del AutoMod por canal: se avisa a Apariencia en cuanto se conoce.
+  sources.on("moderation", () => {
+    if (alive(settingsWin)) settingsWin.webContents.send("shuriken:auth-changed");
+  });
+  twitchAuth.on("change", () => {
+    if (alive(settingsWin)) settingsWin.webContents.send("shuriken:auth-changed");
+  });
   sources.apply(cfg.sources);
   createChatWindow();
   buildTray();
