@@ -12,7 +12,9 @@ const FLAGS = {
   twoLines: "twolines",
 };
 // hidemenu/nomenu se gestionan con la casilla "Ocultar barra de controles".
-const KNOWN_PARAMS = new Set(["session", "ln", "scale", "sidepadding", "chroma", "hidemenu", "nomenu", ...Object.values(FLAGS)]);
+const KNOWN_PARAMS = new Set([
+  "session", "ln", "scale", "sidepadding", "chroma", "hidemenu", "nomenu", "hidesource", ...Object.values(FLAGS),
+]);
 
 // ---------- chroma (RGBA hex) ----------
 
@@ -156,6 +158,7 @@ function fill(view) {
   $("opacity").value = a.opacity;
   $("hideScrollbar").checked = a.hideScrollbar;
   $("hideMenu").checked = a.hideMenu;
+  $("showPlatform").checked = a.showPlatform;
   $("extraParams").value = a.extraParams;
   $("customCss").value = a.customCss;
   $("baseUrl").value = a.baseUrl;
@@ -191,6 +194,7 @@ function collect() {
       opacity: Number($("opacity").value),
       hideScrollbar: $("hideScrollbar").checked,
       hideMenu: $("hideMenu").checked,
+      showPlatform: $("showPlatform").checked,
       customCss: $("customCss").value,
     },
     system: {
@@ -246,6 +250,7 @@ function importUrl(text) {
     a[key] = p.has(param);
   }
   if (p.has("twolines")) a.twoLines = true;
+  a.showPlatform = !p.has("hidesource");
   // La URL de OBS no suele llevarlo (allí se oculta sola): solo lo activamos si viene.
   if (p.has("hidemenu") || p.has("nomenu")) a.hideMenu = true;
   a.useChroma = p.has("chroma");

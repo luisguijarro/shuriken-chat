@@ -180,6 +180,7 @@ function pushChatStyle() {
     // Canales configurados: el chat muestra su estado mientras no hay mensajes.
     channels: cfg.sources.twitch.channels.map((channel) => ({ platform: "twitch", channel })),
     twoLines: a.twoLines,
+    showPlatform: a.showPlatform,
   });
 }
 

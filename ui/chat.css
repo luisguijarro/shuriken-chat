@@ -79,6 +79,13 @@ html.bubble .msg {
   vertical-align: -0.18em;
   margin-right: 0.22em;
 }
+.platform {
+  height: 1.05em;
+  width: 1.05em;
+  vertical-align: -0.17em;
+  margin-right: 0.3em;
+}
+html.noplatform .platform { display: none; }
 .name { font-weight: 700; }
 .sep { margin-right: 0.3em; }
 /* "Texto debajo del nombre" */

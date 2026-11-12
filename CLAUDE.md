@@ -76,6 +76,7 @@ test/config.test.js       Tests de config (node --test)
 - **Twitch no avisa si un canal no existe** (ni error ni JOIN): si no confirma la unión en 8 s (`JOIN_TIMEOUT_MS`) se emite un estado `error`. Al añadir un canal en Apariencia se comprueba con IVR (`check_twitch_channel` → `lookupChannel`): rojo si no existe, punto rojo si está en directo.
 - **Panel de estado** (`#waiting` en chat.html): mientras no hay mensajes muestra el estado de cada canal (conectando / conectado, esperando mensajes / error), porque una ventana vacía parece rota. `SourceManager.snapshot()` incluye el último estado de cada canal para reenviarlo al recargar la página.
 - `twoLines` (true por defecto): texto debajo del nombre. En el chat propio es la clase `twolines`; en SSN añade `&twolines`. Al importar una URL de SSN sin ese parámetro se conserva la preferencia (igual que `hideMenu`).
+- `showPlatform` (true por defecto): icono de la plataforma delante del nombre (`ui/platforms/<plataforma>.svg`, mapa `PLATFORMS` en chat.js). Se oculta con la clase `noplatform` sin volver a pintar. En SSN, si es false se añade `&hidesource` (SSN muestra los iconos de origen por defecto). **Al añadir una plataforma**: su SVG en `ui/platforms/` y su entrada en `PLATFORMS`.
 - En modo SSN, cambiar opciones que van en la URL recarga el dock y **SSN pierde los mensajes** (no tiene historial): es inevitable. En modo plataformas el aspecto se aplica sin recargar (comprobado).
 
 ## Trampas conocidas (ya resueltas, no reintroducir)

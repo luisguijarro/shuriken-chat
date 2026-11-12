@@ -11,7 +11,7 @@ const list = document.getElementById("messages");
 const empty = document.getElementById("empty");
 const waiting = document.getElementById("waiting");
 let style = {
-  darkMode: true, bubble: true, textGlow: false, randomColor: true, fadedTop: true, twoLines: true,
+  darkMode: true, bubble: true, textGlow: false, randomColor: true, fadedTop: true, twoLines: true, showPlatform: true,
   scale: 1, sidePadding: 0, channels: [],
 };
 const statuses = new Map(); // "plataforma:canal" -> último estado de conexión
@@ -117,8 +117,22 @@ function renderParts(parts) {
   return span;
 }
 
+const PLATFORMS = { twitch: "Twitch" }; // iconos en ui/platforms/<plataforma>.svg
+
+/** Icono de la plataforma de origen (se oculta con la opción, sin volver a pintar). */
+function platformIcon(platform) {
+  if (!PLATFORMS[platform]) return null;
+  const img = el("img", "platform");
+  img.src = `platforms/${platform}.svg`;
+  img.alt = PLATFORMS[platform];
+  img.title = PLATFORMS[platform];
+  return img;
+}
+
 function renderMeta(ev, color) {
   const meta = el("span", "meta");
+  const icon = platformIcon(ev.platform);
+  if (icon) meta.append(icon);
   for (const b of ev.badges || []) {
     const src = safeUrl(b.url);
     if (!src) continue;
@@ -148,7 +162,11 @@ function renderMessage(ev) {
 
 function renderNotice(ev) {
   const div = el("div", "msg notice");
-  div.append(el("span", "system", ev.system || ev.kind));
+  const system = el("span", "system");
+  const icon = platformIcon(ev.platform);
+  if (icon) system.append(icon);
+  system.append(document.createTextNode(ev.system || ev.kind));
+  div.append(system);
   if (ev.parts && ev.parts.length) {
     const color = userColor(ev.user);
     div.append(renderMeta(ev, color), renderParts(ev.parts));
@@ -260,6 +278,7 @@ function applyStyle(s) {
   root.toggle("glow", !!style.textGlow);
   root.toggle("faded", !!style.fadedTop);
   root.toggle("twolines", !!style.twoLines);
+  root.toggle("noplatform", !style.showPlatform);
   document.documentElement.style.setProperty("--scale", String(style.scale || 1));
   document.documentElement.style.setProperty("--side", `${style.sidePadding || 0}px`);
   empty.hidden = (style.channels || []).length > 0;

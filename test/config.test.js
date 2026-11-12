@@ -14,6 +14,11 @@ test("genera la URL como SSN", () => {
   );
 });
 
+test("sin icono de plataforma, SSN recibe &hidesource", () => {
+  assert.ok(config.chatUrl(appearance({ session: "S", showPlatform: false })).includes("&hidesource"));
+  assert.ok(!config.chatUrl(appearance({ session: "S" })).includes("hidesource"));
+});
+
 test("sin sesión no hay URL", () => {
   assert.strictEqual(config.chatUrl(appearance({})), null);
   assert.strictEqual(config.chatUrl(appearance({ session: "   " })), null);
