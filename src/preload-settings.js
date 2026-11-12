@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 const COMMANDS = new Set([
   "get_settings", "preview_settings", "save_settings", "revert_settings", "check_twitch_channel",
+  "twitch_auth_status", "twitch_login_start", "twitch_login_wait", "twitch_login_cancel", "twitch_logout",
 ]);
 
 contextBridge.exposeInMainWorld("shuriken", {

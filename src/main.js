@@ -4,11 +4,12 @@
 
 const path = require("path");
 const {
-  app, BrowserWindow, Menu, Tray, WebContentsView, ipcMain, nativeImage, screen, session, shell,
+  app, BrowserWindow, Menu, Tray, WebContentsView, ipcMain, nativeImage, safeStorage, screen, session, shell,
 } = require("electron");
 const config = require("./config");
 const { SourceManager } = require("./sources");
 const { lookupChannel } = require("./sources/twitch-assets");
+const { TwitchAuth, DEFAULT_CLIENT_ID } = require("./sources/twitch-auth");
 const { normalizeChannel } = require("./sources/twitch-parse");
 
 const UI = path.join(__dirname, "..", "ui");
@@ -24,6 +25,7 @@ const EDGE = 6; // px sensibles al borde para redimensionar (igual que en el pre
 
 let cfg = config.load();
 const sources = new SourceManager();
+let twitchAuth = null; // sesión de Twitch (se crea al arrancar: safeStorage necesita la app lista)
 let chatWin = null; // ventana: carga ui/frame.html (borde, fondo, esquinas)
 let chatView = null; // vista interior con SSN, desplazada según el margen
 let settingsWin = null;
@@ -381,6 +383,10 @@ function openSettings() {
     },
   });
   settingsWin.setMenu(null);
+  settingsWin.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https:\/\/(www\.|dev\.)?twitch\.tv\//i.test(url)) shell.openExternal(url);
+    return { action: "deny" };
+  });
   settingsWin.loadFile(path.join(UI, "settings.html"));
   // Si se cierra sin guardar, se descartan los cambios previsualizados.
   settingsWin.on("closed", () => {
@@ -545,6 +551,13 @@ function registerIpc() {
     if (fromChat(e)) stopDrag();
   });
   ipcMain.handle("shuriken:page-state", (e) => (fromChat(e) ? pageState(e.sender) : null));
+  // Aprobar/denegar un mensaje del AutoMod: solo desde NUESTRA página del chat (nunca desde SSN).
+  ipcMain.handle("shuriken:automod", (e, { id, allow } = {}) => {
+    const ours = nativeChat() && e.sender === chatWc() && e.senderFrame === e.sender.mainFrame &&
+      /\/ui\/chat\.html$/.test(new URL(e.senderFrame.url).pathname);
+    if (!ours || typeof id !== "string") throw new Error("no permitido");
+    return sources.automodAction(id, !!allow);
+  });
 
   const settingsCmd = (name, fn) =>
     ipcMain.handle("shuriken:" + name, (e, args) => {
@@ -552,6 +565,25 @@ function registerIpc() {
       return fn(args || {});
     });
   settingsCmd("get_settings", () => settingsView());
+  // ---- Sesión de Twitch (opcional: para revisar el AutoMod) ----
+  const clientIdFor = (id) => String(id || "").trim() || cfg.sources.twitch.clientId || DEFAULT_CLIENT_ID;
+  settingsCmd("twitch_auth_status", () => ({
+    ...twitchAuth.status(),
+    hasDefaultClientId: !!DEFAULT_CLIENT_ID,
+    moderation: sources.moderation,
+  }));
+  settingsCmd("twitch_login_start", async ({ clientId }) => {
+    const r = await twitchAuth.startLogin(clientIdFor(clientId));
+    shell.openExternal(r.verificationUri); // la página ya lleva el código rellenado
+    return r;
+  });
+  settingsCmd("twitch_login_wait", () => {
+    if (!twitchAuth.pending) throw new Error("No hay ningún inicio de sesión en curso.");
+    return twitchAuth.pending.done;
+  });
+  settingsCmd("twitch_login_cancel", () => twitchAuth.cancelLogin());
+  settingsCmd("twitch_logout", () => twitchAuth.logout());
+
   // ¿Existe este canal de Twitch y está en directo?
   settingsCmd("check_twitch_channel", ({ channel }) => {
     const c = normalizeChannel(channel);
@@ -576,6 +608,8 @@ function registerIpc() {
 // ---------------------------------------------------------------------------
 
 function start() {
+  twitchAuth = new TwitchAuth(config.configDir(), safeStorage);
+  sources.setAuth(twitchAuth);
   lockDownPermissions();
   registerIpc();
   sources.on("event", (ev) => {

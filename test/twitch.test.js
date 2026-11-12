@@ -98,10 +98,67 @@ test("mapeo de emotes de 7TV, BTTV y FFZ", () => {
 });
 
 test("config: fuentes por defecto y canales normalizados", () => {
-  assert.deepStrictEqual(config.normalize({}).sources, { mode: "native", twitch: { channels: [] } });
+  assert.deepStrictEqual(config.normalize({}).sources, { mode: "native", twitch: { channels: [], clientId: "" } });
   // Quien ya usaba SSN sigue en SSN al actualizar.
   assert.strictEqual(config.normalize({ appearance: { session: "s" } }).sources.mode, "ssn");
   const s = config.normalize({ sources: { mode: "native", twitch: { channels: ["XQC", "#xqc", "mal nombre", "ibai"] } } }).sources;
-  assert.deepStrictEqual(s, { mode: "native", twitch: { channels: ["xqc", "ibai"] } });
+  assert.deepStrictEqual(s, { mode: "native", twitch: { channels: ["xqc", "ibai"], clientId: "" } });
+  assert.strictEqual(config.normalize({ sources: { twitch: { clientId: " abc123 <x>" } } }).sources.twitch.clientId, "abc123x");
   assert.strictEqual(config.normalize({ sources: { mode: "raro" } }).sources.mode, "native");
+});
+
+const os = require("os");
+const fs = require("fs");
+const path = require("path");
+const { reasonText, fragmentsToParts } = require("../src/sources/twitch-eventsub");
+const { TwitchAuth } = require("../src/sources/twitch-auth");
+
+test("AutoMod: motivo legible", () => {
+  assert.strictEqual(reasonText({ reason: "automod", automod: { category: "swearing", level: 2 } }), "Palabrotas (nivel 2)");
+  assert.strictEqual(reasonText({ reason: "blocked_term" }), "Término bloqueado del canal");
+  assert.strictEqual(reasonText({ reason: "blocked_link" }), "Enlace bloqueado");
+  assert.strictEqual(reasonText({ reason: "automod", automod: { category: "nueva_categoria" } }), "nueva_categoria");
+});
+
+test("AutoMod: fragmentos a partes (emotes de Twitch, de terceros y texto)", () => {
+  const lookup = (w) => (w === "catJAM" ? { url: "https://cdn/catJAM" } : null);
+  const parts = fragmentsToParts({
+    text: "hola Kappa catJAM",
+    fragments: [
+      { type: "text", text: "hola ", emote: null },
+      { type: "emote", text: "Kappa", emote: { id: "25" } },
+      { type: "text", text: " catJAM", emote: null },
+    ],
+  }, lookup);
+  assert.deepStrictEqual(parts, [
+    { type: "text", text: "hola " },
+    { type: "emote", name: "Kappa", url: t.twitchEmoteUrl("25") },
+    { type: "text", text: " " },
+    { type: "emote", name: "catJAM", url: "https://cdn/catJAM" },
+  ]);
+  assert.deepStrictEqual(fragmentsToParts({ text: "solo texto", fragments: [] }), [{ type: "text", text: "solo texto" }]);
+});
+
+test("sesión de Twitch: se guarda cifrada y se recupera; sin llavero, en claro con permisos 600", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "shuriken-auth-"));
+  const fake = {
+    isEncryptionAvailable: () => true,
+    encryptString: (s) => Buffer.from([...Buffer.from(s)].map((b) => b ^ 0x5a)),
+    decryptString: (b) => Buffer.from([...b].map((x) => x ^ 0x5a)).toString(),
+  };
+  const a = new TwitchAuth(dir, fake);
+  a.session = { clientId: "c", accessToken: "SECRETO", refreshToken: "r", expiresAt: 1, userId: "1", login: "yo" };
+  a.save();
+  const raw = fs.readFileSync(path.join(dir, "twitch-auth.json"), "utf8");
+  assert.ok(!raw.includes("SECRETO"), "el token no debe quedar en claro");
+  assert.strictEqual(new TwitchAuth(dir, fake).status().login, "yo");
+
+  const plain = new TwitchAuth(dir, { isEncryptionAvailable: () => false });
+  plain.session = a.session;
+  plain.save();
+  assert.strictEqual(fs.statSync(path.join(dir, "twitch-auth.json")).mode & 0o777, 0o600);
+  plain.session = null;
+  plain.save();
+  assert.ok(!fs.existsSync(path.join(dir, "twitch-auth.json")), "cerrar sesión borra el fichero");
+  fs.rmSync(dir, { recursive: true, force: true });
 });

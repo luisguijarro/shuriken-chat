@@ -33,6 +33,24 @@
       </div>
       <p id="twitchMsg" class="msg"></p>
       <ul id="twitchList" class="chips"></ul>
+
+      <h3>Cuenta de Twitch <small class="muted">(opcional)</small></h3>
+      <p class="muted">Inicia sesión para revisar desde el chat los mensajes que retiene el AutoMod en tus canales (o en los que moderas).</p>
+      <div id="twitchAccount" class="account"></div>
+      <div id="twitchLogin" class="login-box" hidden>
+        <p>Se ha abierto Twitch en tu navegador. Si no, entra en
+          <a id="twitchVerify" href="https://www.twitch.tv/activate" target="_blank" rel="noopener">twitch.tv/activate</a>
+          e introduce este código:</p>
+        <div id="twitchCode" class="code"></div>
+        <button id="twitchCancel" type="button" class="ghost">Cancelar</button>
+      </div>
+      <p id="authMsg" class="msg"></p>
+      <details id="clientIdBox">
+        <summary>Client ID de la app de Twitch</summary>
+        <p class="muted">Hace falta para iniciar sesión. Se obtiene registrando una aplicación de tipo <b>Público</b> en
+          <a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noopener">dev.twitch.tv/console</a>. No es una contraseña.</p>
+        <input id="twitchClientId" type="text" spellcheck="false" autocomplete="off" placeholder="p. ej. abcd1234…" />
+      </details>
     </section>
 
     <section class="ssn-only">

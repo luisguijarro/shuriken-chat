@@ -8,26 +8,42 @@
 //   { type: "clear-user", platform, channel, userId }
 //   { type: "clear-channel", platform, channel }
 //   { type: "status", platform, channel, state, text }
+//   { type: "automod-hold", platform, id, channel, user, reason, parts, ts }   (requiere sesión)
+//   { type: "automod-update", platform, id, channel, status: approved|denied|expired, moderator }
 // `parts`: { type: "text", text } | { type: "emote", name, url, zeroWidth? } | { type: "link", text, url }
 "use strict";
 
 const { EventEmitter } = require("events");
 const { TwitchSource } = require("./twitch");
 const { TwitchAssets } = require("./twitch-assets");
+const { TwitchEventSub } = require("./twitch-eventsub");
 
 const BACKLOG = 150; // mensajes que se reenvían si se recarga la página del chat
 
 class SourceManager extends EventEmitter {
-  constructor() {
+  /** @param {import("./twitch-auth").TwitchAuth} [twitchAuth] sesión de Twitch (opcional) */
+  constructor(twitchAuth = null) {
     super();
+    this.twitchAuth = twitchAuth;
+    this.eventsub = null;
+    this.lastSources = null;
+    this.moderation = {}; // canal -> "ok" | "not-mod" | "error: …"
+    if (twitchAuth) this.setAuth(twitchAuth);
     this.backlog = [];
     this.statuses = new Map(); // "plataforma:canal" -> último evento de estado
     this.twitch = null;
     this.twitchAssets = new TwitchAssets();
   }
 
+  /** Sesión de Twitch: al iniciar o cerrar sesión se reaplica la configuración. */
+  setAuth(auth) {
+    this.twitchAuth = auth;
+    auth.on("change", () => this.lastSources && this.apply(this.lastSources));
+  }
+
   /** Aplica la configuración `sources`: arranca, actualiza o para conectores. */
   apply(sources) {
+    this.lastSources = sources;
     const channels = sources.mode === "native" ? sources.twitch.channels : [];
     if (channels.length) {
       if (!this.twitch) {
@@ -38,6 +54,22 @@ class SourceManager extends EventEmitter {
     } else if (this.twitch) {
       this.twitch.stop();
       this.twitch = null;
+    }
+    // Moderación (AutoMod): solo con sesión iniciada.
+    if (channels.length && this.twitchAuth && this.twitchAuth.loggedIn) {
+      if (!this.eventsub) {
+        this.eventsub = new TwitchEventSub(this.twitchAuth, this.twitchAssets);
+        this.eventsub.on("event", (ev) => this.push(ev));
+        this.eventsub.on("report", (r) => {
+          this.moderation = r;
+          this.emit("moderation", r);
+        });
+      }
+      this.eventsub.setChannels(channels);
+    } else if (this.eventsub) {
+      this.eventsub.stop();
+      this.eventsub = null;
+      this.moderation = {};
     }
     // Fuera los mensajes de canales que ya no seguimos.
     const keep = new Set(channels.map((c) => "twitch:" + c));
@@ -54,8 +86,12 @@ class SourceManager extends EventEmitter {
     switch (ev.type) {
       case "message":
       case "notice":
+      case "automod-hold":
         this.backlog.push(ev);
         if (this.backlog.length > BACKLOG) this.backlog.shift();
+        break;
+      case "automod-update": // ya revisado: deja de estar pendiente
+        this.backlog = this.backlog.filter((m) => !(m.type === "automod-hold" && m.id === ev.id));
         break;
       case "delete":
         this.backlog = this.backlog.filter((m) => !ev.ids.includes(m.id));
@@ -75,9 +111,17 @@ class SourceManager extends EventEmitter {
     this.emit("event", ev);
   }
 
+  /** Aprueba o deniega un mensaje retenido por el AutoMod. */
+  async automodAction(messageId, allow) {
+    if (!this.eventsub) throw new Error("Inicia sesión en Twitch para moderar.");
+    return this.eventsub.act(messageId, allow ? "ALLOW" : "DENY");
+  }
+
   stop() {
     if (this.twitch) this.twitch.stop();
     this.twitch = null;
+    if (this.eventsub) this.eventsub.stop();
+    this.eventsub = null;
   }
 }
 

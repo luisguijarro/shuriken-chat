@@ -49,6 +49,8 @@ if (window.top === window && location.protocol === "file:" && /\/ui\/chat\.html$
         ipcRenderer.on("shuriken:chat-" + name, (_e, data) => cb(data));
       }
     },
+    // Aprobar (allow=true) o denegar un mensaje retenido por el AutoMod.
+    automod: (id, allow) => ipcRenderer.invoke("shuriken:automod", { id: String(id), allow: !!allow }),
   });
 }
 

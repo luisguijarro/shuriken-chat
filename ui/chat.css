@@ -200,3 +200,55 @@ html.bubble .msg.notice { background: color-mix(in srgb, var(--notice) 22%, var(
 #waiting .error .dot { background: #ff5252; }
 #waiting .connecting .dot, #waiting .disconnected .dot { animation: pulse 1s ease-in-out infinite alternate; }
 @keyframes pulse { to { opacity: 0.3; } }
+
+/* ---------- AutoMod ---------- */
+
+.msg.automod {
+  --am: #e5a400;
+  box-shadow: inset 3px 0 0 var(--am);
+  padding-left: 0.6em;
+  font-size: 0.9em;
+  transition: opacity 1s;
+}
+html.bubble .msg.automod { background: color-mix(in srgb, var(--am) 16%, var(--bubble-bg)); }
+.am-head { color: var(--muted); }
+.am-head .platform { margin-right: 0.3em; }
+.am-shield { margin-right: 0.1em; }
+.am-hint {
+  display: block;
+  font-size: 0.8em;
+  opacity: 0.75;
+  font-style: italic;
+}
+.msg.automod.pending:hover .am-hint,
+.msg.automod.busy .am-hint { display: none; }
+
+/* El contenido solo se ve al pasar el ratón (o mientras se procesa la acción). */
+.am-body { display: none; margin-top: 0.35em; }
+.msg.automod.pending:hover .am-body,
+.msg.automod.busy .am-body { display: block; }
+.am-reason { font-size: 0.85em; color: var(--am); font-weight: 600; }
+.am-text { display: block; margin: 0.2em 0 0.4em; }
+.am-actions { display: flex; gap: 0.5em; }
+.am-actions button {
+  font: inherit;
+  font-size: 0.85em;
+  font-weight: 700;
+  border: 0;
+  border-radius: 0.5em;
+  padding: 0.25em 0.8em;
+  cursor: pointer;
+  color: #fff;
+}
+.am-allow { background: #1f9d55; }
+.am-deny { background: #d64545; }
+.am-actions button:hover { filter: brightness(1.15); }
+.am-actions button:disabled { opacity: 0.5; cursor: progress; }
+.am-error { color: #ff8080; font-size: 0.8em; margin-top: 0.3em; }
+.am-error:empty { display: none; }
+
+.msg.automod.resolved { font-size: 0.8em; font-style: italic; }
+.msg.automod.approved { --am: #2ecc71; }
+.msg.automod.denied { --am: #ff5252; }
+.msg.automod.expired { --am: #888; }
+.msg.automod.gone { opacity: 0; }

@@ -52,7 +52,9 @@ function normalizeSources(raw, appearance) {
   const mode = s.mode === "ssn" || s.mode === "native" ? s.mode : appearance.session.trim() ? "ssn" : "native";
   const list = Array.isArray(obj(s.twitch).channels) ? obj(s.twitch).channels : [];
   const channels = [...new Set(list.map(normalizeChannel).filter(Boolean))];
-  return { mode, twitch: { channels } };
+  // Client ID de la app de Twitch (solo para iniciar sesión; vacío = el incluido en la app).
+  const clientId = String(obj(s.twitch).clientId || "").trim().replace(/[^a-z0-9]/gi, "").slice(0, 64);
+  return { mode, twitch: { channels, clientId } };
 }
 
 /** Opciones que requieren reiniciar la app. */
@@ -126,7 +128,10 @@ function save(config) {
 /** Lo que edita la ventana de ajustes. */
 function userSettings(config) {
   return {
-    sources: { mode: config.sources.mode, twitch: { channels: [...config.sources.twitch.channels] } },
+    sources: {
+      mode: config.sources.mode,
+      twitch: { channels: [...config.sources.twitch.channels], clientId: config.sources.twitch.clientId },
+    },
     appearance: { ...config.appearance },
     system: { ...config.system },
   };

@@ -129,6 +129,91 @@ async function addTwitch() {
   renderChannels();
 }
 
+// ---------- cuenta de Twitch (AutoMod) ----------
+
+let authState = { loggedIn: false, hasDefaultClientId: false, moderation: {} };
+
+function button(text, cls, onClick) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = text;
+  if (cls) b.className = cls;
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+function renderAuth() {
+  const box = $("twitchAccount");
+  box.textContent = "";
+  const line = document.createElement("div");
+  line.className = "row";
+  const label = document.createElement("span");
+  label.className = "grow";
+  if (authState.loggedIn) {
+    label.append("Sesión iniciada como ");
+    const b = document.createElement("b");
+    b.textContent = authState.login;
+    label.append(b);
+    line.append(label, button("Cerrar sesión", "ghost", logout));
+  } else {
+    label.textContent = "Sin sesión: el chat se lee de forma anónima.";
+    line.append(label, button("Iniciar sesión con Twitch", "", login));
+  }
+  box.append(line);
+  // En qué canales funciona la revisión del AutoMod.
+  const mod = authState.moderation || {};
+  if (authState.loggedIn && Object.keys(mod).length) {
+    const ul = document.createElement("ul");
+    ul.className = "mod-list";
+    for (const [c, st] of Object.entries(mod)) {
+      const li = document.createElement("li");
+      li.className = st === "ok" ? "ok" : "bad";
+      li.textContent = st === "ok" ? `#${c}: AutoMod activo` : st === "not-mod" ? `#${c}: no eres moderador` : `#${c}: ${st}`;
+      ul.append(li);
+    }
+    box.append(ul);
+  }
+  if (!authState.hasDefaultClientId && !$("twitchClientId").value.trim()) $("clientIdBox").open = true;
+}
+
+async function refreshAuth() {
+  try {
+    authState = await invoke("twitch_auth_status");
+  } catch {}
+  renderAuth();
+}
+
+const cleanError = (e) => String((e && e.message) || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+
+async function login() {
+  const clientId = $("twitchClientId").value.trim();
+  if (!clientId && !authState.hasDefaultClientId) {
+    $("clientIdBox").open = true;
+    return message("authMsg", "Primero pon el Client ID de tu app de Twitch (abajo).", "error");
+  }
+  message("authMsg", "Pidiendo código a Twitch…", "");
+  try {
+    const r = await invoke("twitch_login_start", { clientId });
+    $("twitchCode").textContent = r.userCode;
+    $("twitchVerify").href = r.verificationUri;
+    $("twitchLogin").hidden = false;
+    message("authMsg", "Esperando a que autorices la app en Twitch…", "");
+    const st = await invoke("twitch_login_wait");
+    message("authMsg", `¡Sesión iniciada como ${st.login}!`, "ok");
+  } catch (e) {
+    message("authMsg", cleanError(e), "error");
+  }
+  $("twitchLogin").hidden = true;
+  await refreshAuth();
+  setTimeout(refreshAuth, 5000); // el estado del AutoMod por canal llega unos segundos después
+}
+
+async function logout() {
+  await invoke("twitch_logout").catch(() => {});
+  message("authMsg", "Sesión cerrada.", "");
+  refreshAuth();
+}
+
 // ---------- formulario <-> ajustes ----------
 
 let lastLoaded = null;
@@ -139,6 +224,7 @@ function fill(view) {
   const s = view.system;
   setMode(view.sources.mode);
   twitchChannels = [...view.sources.twitch.channels];
+  $("twitchClientId").value = view.sources.twitch.clientId || "";
   renderChannels();
   // Comprueba los canales guardados (marca en rojo los que no existen).
   Promise.all(twitchChannels.map(checkChannel)).then(renderChannels);
@@ -170,7 +256,7 @@ function fill(view) {
 
 function collect() {
   return {
-    sources: { mode: getMode(), twitch: { channels: [...twitchChannels] } },
+    sources: { mode: getMode(), twitch: { channels: [...twitchChannels], clientId: $("twitchClientId").value.trim() } },
     appearance: {
       baseUrl: $("baseUrl").value.trim(),
       session: $("session").value.trim(),
@@ -305,6 +391,7 @@ document.addEventListener("input", (e) => {
 });
 
 $("twitchAdd").addEventListener("click", addTwitch);
+$("twitchCancel").addEventListener("click", () => invoke("twitch_login_cancel").catch(() => {}));
 $("twitchInput").addEventListener("keydown", (e) => {
   if (e.key === "Enter") addTwitch();
 });
@@ -351,4 +438,4 @@ $("revert").addEventListener("click", async () => {
   message("status", "Cambios descartados", "");
 });
 
-load().catch((e) => message("status", String(e), "error"));
+load().then(refreshAuth).catch((e) => message("status", String(e), "error"));
