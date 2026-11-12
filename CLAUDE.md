@@ -73,6 +73,10 @@ test/config.test.js       Tests de config (node --test)
 - Eventos soportados: mensajes, /me, respuestas, primer mensaje, mensajes destacados, subs/regalos/raids/anuncios (USERNOTICE), borrado de mensaje (CLEARMSG), baneo/timeout (CLEARCHAT con usuario) y vaciado del chat.
 - Opciones de Apariencia que usa el render propio: darkMode, bubble, textGlow, randomColor, fadedTop, scale, sidePadding (+ el CSS común: transparencia, opacidad, CSS personalizado). Las exclusivas de SSN (sesión, idioma, hideMenu, extraParams, baseUrl, URL generada) se ocultan en modo plataformas (`.ssn-only`).
 - `sources.mode` por defecto: "native", salvo que ya haya sesión de SSN (así quien actualiza no ve cambios).
+- **Twitch no avisa si un canal no existe** (ni error ni JOIN): si no confirma la unión en 8 s (`JOIN_TIMEOUT_MS`) se emite un estado `error`. Al añadir un canal en Apariencia se comprueba con IVR (`check_twitch_channel` → `lookupChannel`): rojo si no existe, punto rojo si está en directo.
+- **Panel de estado** (`#waiting` en chat.html): mientras no hay mensajes muestra el estado de cada canal (conectando / conectado, esperando mensajes / error), porque una ventana vacía parece rota. `SourceManager.snapshot()` incluye el último estado de cada canal para reenviarlo al recargar la página.
+- `twoLines` (true por defecto): texto debajo del nombre. En el chat propio es la clase `twolines`; en SSN añade `&twolines`. Al importar una URL de SSN sin ese parámetro se conserva la preferencia (igual que `hideMenu`).
+- En modo SSN, cambiar opciones que van en la URL recarga el dock y **SSN pierde los mensajes** (no tiene historial): es inevitable. En modo plataformas el aspecto se aplica sin recargar (comprobado).
 
 ## Trampas conocidas (ya resueltas, no reintroducir)
 
@@ -98,12 +102,9 @@ Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm
 
 ## Estado actual
 
-- 🚧 Rama `twitch` (v0.3.0): chat propio con Twitch. Probado en vivo con un canal real (mensajes, colores, insignias, emotes 7TV, flujo de añadir canal desde Apariencia). Pendiente: que el usuario lo pruebe, fusionar en master y publicar release.
-
-- ✅ Migrado a Electron. Tests pasan. Comprobado en la máquina del usuario (dev y AppImage): ventanas en XWayland con GPU, WebRTC disponible en la página real de SSN, 0 dispositivos multimedia, cámara denegada, barra de SSN oculta, fondo transparente, config guardada.
-- ⏳ **Pendiente de probar por el usuario con su sesión real**: que lleguen los mensajes, arrastrar/redimensionar, menú de clic derecho, bandeja en KDE, transparencia real.
-- ⏳ Borrar `src-tauri/` cuando el usuario lo confirme.
-- ⏳ Repo git inicializado **sin commits todavía**. Hacer commit solo cuando el usuario lo pida.
+- 🚧 Rama `twitch` (v0.3.0): chat propio con Twitch. Probado en vivo con canales reales (mensajes, colores, insignias, emotes 7TV, añadir canal desde Apariencia, canal inexistente, cambios de aspecto sin perder mensajes). Pendiente: que el usuario lo pruebe con su canal, fusionar en master y publicar release (falta saber cómo publicar en su Gitea: token o `tea`).
+- ✅ master (v0.2.0): modo SSN sobre Electron, ya publicado en `origin`.
+- `src-tauri/` se queda en el repo (el usuario dijo que da igual).
 
 ## Privacidad
 

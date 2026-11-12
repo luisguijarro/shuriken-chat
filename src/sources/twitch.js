@@ -8,6 +8,7 @@ const { parseIrc, loginFromPrefix, tokenize, parseBadgesTag } = require("./twitc
 
 const IRC_URL = "wss://irc-ws.chat.twitch.tv:443";
 const MAX_BACKOFF_MS = 30000;
+const JOIN_TIMEOUT_MS = 8000; // Twitch no avisa si el canal no existe: simplemente no confirma
 const SILENCE_MS = 6 * 60 * 1000; // Twitch manda PING cada ~5 min: si no llega nada, reconectar
 
 class TwitchSource extends EventEmitter {
@@ -17,6 +18,7 @@ class TwitchSource extends EventEmitter {
     this.channels = new Set(); // los que queremos
     this.joined = new Set(); // en los que estamos
     this.rooms = new Map(); // canal -> room-id
+    this.joinTimers = new Map(); // canal -> temporizador de "no confirmó la unión"
     this.ws = null;
     this.ready = false;
     this.stopped = false;
@@ -36,18 +38,36 @@ class TwitchSource extends EventEmitter {
     this.channels = new Set(list);
     if (!this.ws) return this.connect();
     if (!this.ready) return;
-    for (const c of this.channels) if (!this.joined.has(c)) this.send(`JOIN #${c}`);
-    for (const c of [...this.joined]) {
+    for (const c of this.channels) if (!this.joined.has(c) && !this.joinTimers.has(c)) this.join(c);
+    for (const c of [...this.joined, ...this.joinTimers.keys()]) {
       if (!this.channels.has(c)) {
         this.send(`PART #${c}`);
         this.joined.delete(c);
-        this.status(c, "left", `Has salido de #${c}`);
+        this.clearJoinTimer(c);
       }
     }
   }
 
+  join(channel) {
+    this.clearJoinTimer(channel);
+    this.status(channel, "connecting", `Conectando a #${channel}…`);
+    this.send(`JOIN #${channel}`);
+    this.joinTimers.set(channel, setTimeout(() => {
+      this.joinTimers.delete(channel);
+      if (!this.joined.has(channel) && this.channels.has(channel)) {
+        this.status(channel, "error", `El canal #${channel} no existe en Twitch (o está suspendido). Revisa el nombre en Apariencia.`);
+      }
+    }, JOIN_TIMEOUT_MS));
+  }
+
+  clearJoinTimer(channel) {
+    clearTimeout(this.joinTimers.get(channel));
+    this.joinTimers.delete(channel);
+  }
+
   stop() {
     this.stopped = true;
+    for (const c of [...this.joinTimers.keys()]) this.clearJoinTimer(c);
     clearInterval(this.watchdog);
     clearTimeout(this.retryTimer);
     if (this.ws) this.ws.close();
@@ -77,6 +97,7 @@ class TwitchSource extends EventEmitter {
       if (this.ws !== ws) return;
       this.ws = null;
       this.ready = false;
+      for (const c of [...this.joinTimers.keys()]) this.clearJoinTimer(c);
       if (this.stopped) return;
       for (const c of this.channels) this.status(c, "disconnected", `Desconectado de #${c}, reintentando…`);
       this.retryTimer = setTimeout(() => this.connect(), this.backoff);
@@ -117,13 +138,14 @@ class TwitchSource extends EventEmitter {
       case "001": // bienvenida: ya podemos unirnos
         this.ready = true;
         this.backoff = 1000;
-        for (const c of this.channels) this.send(`JOIN #${c}`);
+        for (const c of this.channels) this.join(c);
         return;
       case "RECONNECT":
         return this.ws && this.ws.close();
       case "JOIN":
         if (/^justinfan\d+$/.test(loginFromPrefix(m.prefix)) && this.channels.has(channel)) {
           this.joined.add(channel);
+          this.clearJoinTimer(channel);
           this.status(channel, "connected", `Conectado a #${channel}`);
         }
         return;

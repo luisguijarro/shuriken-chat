@@ -145,3 +145,5 @@ body.mode-ssn .native-only { display: none !important; }
   padding: 0 6px; font-size: 15px; line-height: 1; border-radius: 999px;
 }
 .chips li button:hover { background: rgba(255, 255, 255, .15); }
+.chips li.bad { background: rgba(255, 70, 70, .18); border-color: rgba(255, 70, 70, .6); text-decoration: line-through; }
+.chips li.live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #ff4d4d; }

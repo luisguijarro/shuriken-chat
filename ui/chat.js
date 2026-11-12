@@ -9,7 +9,12 @@ const STATUS_MS = 6000; // los avisos de conexión desaparecen solos
 
 const list = document.getElementById("messages");
 const empty = document.getElementById("empty");
-let style = { darkMode: true, bubble: true, textGlow: false, randomColor: true, fadedTop: true, scale: 1, sidePadding: 0 };
+const waiting = document.getElementById("waiting");
+let style = {
+  darkMode: true, bubble: true, textGlow: false, randomColor: true, fadedTop: true, twoLines: true,
+  scale: 1, sidePadding: 0, channels: [],
+};
+const statuses = new Map(); // "plataforma:canal" -> último estado de conexión
 
 // ---------- Colores de usuario ----------
 
@@ -172,6 +177,38 @@ function keepAtBottom() {
   if (stick) list.scrollTop = list.scrollHeight;
 }
 
+// ---------- Estado de conexión ----------
+
+const hasMessages = () => !!list.querySelector(".msg:not(.status)");
+
+/** Mientras no hay mensajes, un panel fijo dice qué pasa con cada canal
+ *  (si no, una ventana vacía parece que no funciona). */
+function renderWaiting() {
+  const channels = style.channels || [];
+  waiting.hidden = !channels.length || hasMessages();
+  if (waiting.hidden) return;
+  waiting.textContent = "";
+  for (const { platform, channel } of channels) {
+    const st = statuses.get(`${platform}:${channel}`);
+    const state = st ? st.state : "connecting";
+    const line = el("div", "line " + state);
+    const text = {
+      connected: `#${channel}: conectado. Esperando mensajes…`,
+      connecting: `Conectando a #${channel}…`,
+      disconnected: `#${channel}: desconectado, reintentando…`,
+    }[state] || (st && st.text) || `#${channel}`;
+    line.append(el("span", "dot"), el("span", null, text));
+    waiting.append(line);
+  }
+}
+
+function onStatus(ev) {
+  statuses.set(`${ev.platform}:${ev.channel}`, ev);
+  // Con mensajes en pantalla, los cambios importantes se avisan dentro del chat.
+  if (hasMessages() && ev.state !== "connecting") append(renderStatus(ev));
+  renderWaiting();
+}
+
 function append(node, ev) {
   if (ev) {
     node.dataset.id = ev.id || "";
@@ -182,6 +219,7 @@ function append(node, ev) {
   list.append(node);
   const msgs = list.querySelectorAll(".msg:not(.status)");
   for (let i = 0; i < msgs.length - MAX_MESSAGES; i++) msgs[i].remove();
+  if (!waiting.hidden) renderWaiting();
   keepAtBottom();
 }
 
@@ -195,7 +233,7 @@ function handle(ev) {
     case "notice":
       return append(renderNotice(ev), ev);
     case "status":
-      return append(renderStatus(ev));
+      return onStatus(ev);
     case "delete":
       for (const id of ev.ids || []) matches(`.msg[data-id="${cssEsc(id)}"]`).forEach((n) => n.remove());
       return;
@@ -205,9 +243,11 @@ function handle(ev) {
       return;
     case "clear-channel":
       matches(`.msg[data-platform="${cssEsc(ev.platform)}"][data-channel="${cssEsc(ev.channel)}"]`).forEach((n) => n.remove());
-      return;
+      break;
     default:
+      return;
   }
+  renderWaiting(); // si se borró todo, vuelve el panel de estado
 }
 
 // ---------- Ajustes de aspecto ----------
@@ -219,9 +259,11 @@ function applyStyle(s) {
   root.toggle("bubble", !!style.bubble);
   root.toggle("glow", !!style.textGlow);
   root.toggle("faded", !!style.fadedTop);
+  root.toggle("twolines", !!style.twoLines);
   document.documentElement.style.setProperty("--scale", String(style.scale || 1));
   document.documentElement.style.setProperty("--side", `${style.sidePadding || 0}px`);
-  empty.hidden = (style.channels || 0) > 0;
+  empty.hidden = (style.channels || []).length > 0;
+  renderWaiting();
   keepAtBottom();
 }
 
@@ -229,10 +271,13 @@ const api = window.shurikenChat;
 if (api) {
   api.on("style", applyStyle);
   api.on("event", handle);
-  api.on("backlog", (events) => {
+  api.on("backlog", (snap) => {
     list.textContent = "";
-    for (const ev of events || []) handle(ev);
+    statuses.clear();
+    for (const st of (snap && snap.statuses) || []) statuses.set(`${st.platform}:${st.channel}`, st);
+    for (const ev of (snap && snap.events) || []) handle(ev);
     stick = true;
+    renderWaiting();
     keepAtBottom();
   });
 }

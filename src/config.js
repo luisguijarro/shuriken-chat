@@ -26,6 +26,7 @@ const DEFAULT_APPEARANCE = {
   textGlow: false,
   randomColor: true,
   fadedTop: true,
+  twoLines: true, // texto debajo del nombre (en SSN: &twolines)
   hideMenu: true, // SSN solo oculta su barra de controles sola dentro de OBS
   extraParams: "", // parámetros extra de SSN tal cual: a=1&b&c=texto
   // --- Lo siguiente no va en la URL: lo dibuja la app ---
@@ -155,6 +156,7 @@ function chatUrl(appearance) {
   if (a.textGlow) q.push("textglow");
   if (a.bubble) q.push("bubble");
   if (a.darkMode) q.push("darkmode");
+  if (a.twoLines) q.push("twolines");
   if (a.hideMenu) q.push("hidemenu");
   if (a.useChroma && a.chroma.trim()) q.push(`chroma=${enc(a.chroma.trim().replace(/^#/, ""))}`);
   for (let part of a.extraParams.split(/[&\n]/)) {

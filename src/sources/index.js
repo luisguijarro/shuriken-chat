@@ -21,6 +21,7 @@ class SourceManager extends EventEmitter {
   constructor() {
     super();
     this.backlog = [];
+    this.statuses = new Map(); // "plataforma:canal" -> último evento de estado
     this.twitch = null;
     this.twitchAssets = new TwitchAssets();
   }
@@ -41,6 +42,12 @@ class SourceManager extends EventEmitter {
     // Fuera los mensajes de canales que ya no seguimos.
     const keep = new Set(channels.map((c) => "twitch:" + c));
     this.backlog = this.backlog.filter((ev) => keep.has(`${ev.platform}:${ev.channel}`));
+    for (const k of [...this.statuses.keys()]) if (!keep.has(k)) this.statuses.delete(k);
+  }
+
+  /** Lo que necesita la página del chat al (re)cargarse. */
+  snapshot() {
+    return { events: this.backlog, statuses: [...this.statuses.values()] };
   }
 
   push(ev) {
@@ -59,6 +66,9 @@ class SourceManager extends EventEmitter {
         break;
       case "clear-channel":
         this.backlog = this.backlog.filter((m) => !(m.platform === ev.platform && m.channel === ev.channel));
+        break;
+      case "status":
+        this.statuses.set(`${ev.platform}:${ev.channel}`, ev);
         break;
       default:
     }

@@ -8,6 +8,8 @@ const {
 } = require("electron");
 const config = require("./config");
 const { SourceManager } = require("./sources");
+const { lookupChannel } = require("./sources/twitch-assets");
+const { normalizeChannel } = require("./sources/twitch-parse");
 
 const UI = path.join(__dirname, "..", "ui");
 const ICONS = path.join(__dirname, "..", "assets", "icons");
@@ -175,7 +177,9 @@ function pushChatStyle() {
     fadedTop: a.fadedTop,
     scale: a.scale,
     sidePadding: a.sidePadding,
-    channels: cfg.sources.twitch.channels.length,
+    // Canales configurados: el chat muestra su estado mientras no hay mensajes.
+    channels: cfg.sources.twitch.channels.map((channel) => ({ platform: "twitch", channel })),
+    twoLines: a.twoLines,
   });
 }
 
@@ -447,7 +451,7 @@ function createChatWindow() {
     pushPageState();
     if (nativeChat()) {
       pushChatStyle();
-      wc.send("shuriken:chat-backlog", sources.backlog);
+      wc.send("shuriken:chat-backlog", sources.snapshot());
     }
   });
 
@@ -547,6 +551,11 @@ function registerIpc() {
       return fn(args || {});
     });
   settingsCmd("get_settings", () => settingsView());
+  // ¿Existe este canal de Twitch y está en directo?
+  settingsCmd("check_twitch_channel", ({ channel }) => {
+    const c = normalizeChannel(channel);
+    return c ? lookupChannel(c) : { exists: false };
+  });
   // Aplica los ajustes en vivo, sin guardarlos. Devuelve la URL resultante.
   settingsCmd("preview_settings", ({ settings }) => applySettings(settings));
   settingsCmd("save_settings", ({ settings }) => {

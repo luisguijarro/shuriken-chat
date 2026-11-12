@@ -152,4 +152,19 @@ class TwitchAssets {
   }
 }
 
-module.exports = { TwitchAssets, from7tv, fromBttv, fromFfzSets };
+/**
+ * ¿Existe el canal? (IVR). Devuelve { exists, name, live, banned } o
+ * { exists: null } si no se pudo comprobar (sin red, API caída…).
+ */
+async function lookupChannel(login) {
+  try {
+    const d = await fetchJson(`https://api.ivr.fi/v2/twitch/user?login=${encodeURIComponent(login)}`);
+    const u = Array.isArray(d) ? d[0] : null;
+    if (!u) return { exists: false };
+    return { exists: true, name: u.displayName || u.login, live: !!u.stream, banned: !!u.banned };
+  } catch (e) {
+    return { exists: null, error: e.message };
+  }
+}
+
+module.exports = { TwitchAssets, lookupChannel, from7tv, fromBttv, fromFfzSets };

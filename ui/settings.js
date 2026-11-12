@@ -9,6 +9,7 @@ const FLAGS = {
   textGlow: "textglow",
   randomColor: "randomcolor",
   fadedTop: "fadedtop",
+  twoLines: "twolines",
 };
 // hidemenu/nomenu se gestionan con la casilla "Ocultar barra de controles".
 const KNOWN_PARAMS = new Set(["session", "ln", "scale", "sidepadding", "chroma", "hidemenu", "nomenu", ...Object.values(FLAGS)]);
@@ -45,6 +46,19 @@ const getChroma = () => getRgba("chroma");
 // ---------- fuente del chat ----------
 
 let twitchChannels = [];
+const channelInfo = new Map(); // canal -> { exists, live, … } (comprobado con la app)
+
+async function checkChannel(c) {
+  if (channelInfo.has(c)) return channelInfo.get(c);
+  let info;
+  try {
+    info = await invoke("check_twitch_channel", { channel: c });
+  } catch {
+    info = { exists: null };
+  }
+  if (info.exists !== null) channelInfo.set(c, info); // si falló la red, se reintentará
+  return info;
+}
 
 /** Igual que normalizeChannel en src/sources/twitch-parse.js. */
 function normalizeTwitch(value) {
@@ -67,6 +81,14 @@ function renderChannels() {
   ul.textContent = "";
   for (const c of twitchChannels) {
     const li = document.createElement("li");
+    const info = channelInfo.get(c);
+    if (info && info.exists === false) {
+      li.classList.add("bad");
+      li.title = "Este canal no existe en Twitch";
+    } else if (info && info.live) {
+      li.classList.add("live");
+      li.title = "En directo ahora";
+    }
     li.append(document.createTextNode(c));
     const del = document.createElement("button");
     del.type = "button";
@@ -82,7 +104,7 @@ function renderChannels() {
   }
 }
 
-function addTwitch() {
+async function addTwitch() {
   const raw = $("twitchInput").value;
   if (!raw.trim()) return;
   const c = normalizeTwitch(raw);
@@ -90,9 +112,19 @@ function addTwitch() {
   if (twitchChannels.includes(c)) return message("twitchMsg", `#${c} ya está en la lista.`, "");
   twitchChannels.push(c);
   $("twitchInput").value = "";
-  message("twitchMsg", `#${c} añadido ✓`, "ok");
+  message("twitchMsg", `Comprobando #${c}…`, "");
   renderChannels();
   schedulePreview();
+  const info = await checkChannel(c);
+  if (!twitchChannels.includes(c)) return;
+  if (info.exists === false) {
+    message("twitchMsg", `#${c} no existe en Twitch. Revisa el nombre (puedes copiarlo de la URL de tu canal).`, "error");
+  } else if (info.exists === null) {
+    message("twitchMsg", `#${c} añadido (no se pudo comprobar si existe).`, "");
+  } else {
+    message("twitchMsg", `#${info.name || c} añadido ✓${info.live ? " · en directo ahora" : " · ahora mismo no está en directo"}`, "ok");
+  }
+  renderChannels();
 }
 
 // ---------- formulario <-> ajustes ----------
@@ -106,6 +138,8 @@ function fill(view) {
   setMode(view.sources.mode);
   twitchChannels = [...view.sources.twitch.channels];
   renderChannels();
+  // Comprueba los canales guardados (marca en rojo los que no existen).
+  Promise.all(twitchChannels.map(checkChannel)).then(renderChannels);
   $("session").value = a.session;
   ensureOption($("language"), a.language);
   $("language").value = a.language;
@@ -151,6 +185,7 @@ function collect() {
       textGlow: $("textGlow").checked,
       randomColor: $("randomColor").checked,
       fadedTop: $("fadedTop").checked,
+      twoLines: $("twoLines").checked,
       extraParams: $("extraParams").value.trim(),
       transparentBg: $("transparentBg").checked,
       opacity: Number($("opacity").value),
@@ -206,7 +241,11 @@ function importUrl(text) {
   a.language = p.get("ln") || a.language;
   if (p.has("scale")) a.scale = Number(p.get("scale")) || 1;
   a.sidePadding = p.has("sidepadding") ? Number(p.get("sidepadding")) || 0 : 0;
-  for (const [key, param] of Object.entries(FLAGS)) a[key] = p.has(param);
+  for (const [key, param] of Object.entries(FLAGS)) {
+    if (key === "twoLines") continue; // preferencia de Shuriken: solo se activa si viene en la URL
+    a[key] = p.has(param);
+  }
+  if (p.has("twolines")) a.twoLines = true;
   // La URL de OBS no suele llevarlo (allí se oculta sola): solo lo activamos si viene.
   if (p.has("hidemenu") || p.has("nomenu")) a.hideMenu = true;
   a.useChroma = p.has("chroma");
