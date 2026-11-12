@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: https: data:; font-src 'self'" />
+  <title>Shuriken Chat</title>
+  <link rel="stylesheet" href="chat.css" />
+</head>
+<body>
+  <!-- Chat propio (modo "plataformas"). Los mensajes llegan del proceso principal
+       por window.shurikenChat (preload-chat.js) y se pintan en chat.js. -->
+  <main id="messages" aria-live="polite"></main>
+  <div id="waiting" hidden></div>
+  <div id="empty" hidden>
+    <img src="icon.svg" alt="" />
+    <p>Haz <kbd>clic derecho</kbd> → <b>Apariencia…</b><br /><span id="emptyWhat">y conecta tu canal de Twitch.</span></p>
+  </div>
+  <script src="chat.js"></script>
+</body>
+</html>

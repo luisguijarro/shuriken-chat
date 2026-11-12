@@ -8,6 +8,8 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
+const { normalizeChannel } = require("./sources/twitch-parse");
+
 const DEFAULT_BASE_URL = "https://socialstream.ninja/dock.html";
 
 /** Aspecto del chat: casi todo se traduce a parámetros de la URL de SSN. */
@@ -24,6 +26,8 @@ const DEFAULT_APPEARANCE = {
   textGlow: false,
   randomColor: true,
   fadedTop: true,
+  twoLines: true, // texto debajo del nombre (en SSN: &twolines)
+  showPlatform: true, // icono de la plataforma en cada mensaje (en SSN: &hidesource si es false)
   hideMenu: true, // SSN solo oculta su barra de controles sola dentro de OBS
   extraParams: "", // parámetros extra de SSN tal cual: a=1&b&c=texto
   // --- Lo siguiente no va en la URL: lo dibuja la app ---
@@ -36,6 +40,25 @@ const DEFAULT_APPEARANCE = {
   hideScrollbar: true,
   customCss: "",
 };
+
+/**
+ * De dónde sale el chat:
+ *  - "native": la propia app lee las plataformas (Twitch…).
+ *  - "ssn": muestra el dock de Social Stream Ninja (respaldo de emergencia).
+ * Por defecto "native", salvo que ya hubiera una sesión de SSN configurada.
+ */
+function normalizeSources(raw, appearance) {
+  const s = obj(raw);
+  const mode = s.mode === "ssn" || s.mode === "native" ? s.mode : appearance.session.trim() ? "ssn" : "native";
+  const list = Array.isArray(obj(s.twitch).channels) ? obj(s.twitch).channels : [];
+  const channels = [...new Set(list.map(normalizeChannel).filter(Boolean))];
+  // Client ID de la app de Twitch (solo para iniciar sesión; vacío = el incluido en la app).
+  const clientId = String(obj(s.twitch).clientId || "").trim().replace(/[^a-z0-9]/gi, "").slice(0, 64);
+  // Cómo se conecta Twitch: con la cuenta del usuario (su canal, + AutoMod) o sin cuenta
+  // (canales escritos a mano). Por defecto, con cuenta, salvo que ya hubiera canales escritos.
+  const useAccount = typeof obj(s.twitch).useAccount === "boolean" ? obj(s.twitch).useAccount : !channels.length;
+  return { mode, twitch: { useAccount, channels, clientId } };
+}
 
 /** Opciones que requieren reiniciar la app. */
 const DEFAULT_SYSTEM = {
@@ -83,8 +106,10 @@ function withDefaults(defaults, value) {
 
 function normalize(raw) {
   const c = obj(raw);
+  const appearance = withDefaults(DEFAULT_APPEARANCE, c.appearance);
   return {
-    appearance: withDefaults(DEFAULT_APPEARANCE, c.appearance),
+    sources: normalizeSources(c.sources, appearance),
+    appearance,
     system: withDefaults(DEFAULT_SYSTEM, c.system),
     window: withDefaults(DEFAULT_WINDOW, c.window),
   };
@@ -105,7 +130,14 @@ function save(config) {
 
 /** Lo que edita la ventana de ajustes. */
 function userSettings(config) {
-  return { appearance: { ...config.appearance }, system: { ...config.system } };
+  return {
+    sources: {
+      mode: config.sources.mode,
+      twitch: { ...config.sources.twitch, channels: [...config.sources.twitch.channels] },
+    },
+    appearance: { ...config.appearance },
+    system: { ...config.system },
+  };
 }
 
 const enc = (s) => new URLSearchParams({ x: s }).toString().slice(2);
@@ -133,6 +165,8 @@ function chatUrl(appearance) {
   if (a.textGlow) q.push("textglow");
   if (a.bubble) q.push("bubble");
   if (a.darkMode) q.push("darkmode");
+  if (a.twoLines) q.push("twolines");
+  if (!a.showPlatform) q.push("hidesource");
   if (a.hideMenu) q.push("hidemenu");
   if (a.useChroma && a.chroma.trim()) q.push(`chroma=${enc(a.chroma.trim().replace(/^#/, ""))}`);
   for (let part of a.extraParams.split(/[&\n]/)) {

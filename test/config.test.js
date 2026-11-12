@@ -10,8 +10,13 @@ test("genera la URL como SSN", () => {
   const a = appearance({ session: "ABC", scale: 0.5, sidePadding: 8, useChroma: true, chroma: "0006", textGlow: true });
   assert.strictEqual(
     config.chatUrl(a),
-    "https://socialstream.ninja/dock.html?session=ABC&ln=es&scale=0.5&randomcolor&fadedtop&sidepadding=8&textglow&bubble&darkmode&hidemenu&chroma=0006",
+    "https://socialstream.ninja/dock.html?session=ABC&ln=es&scale=0.5&randomcolor&fadedtop&sidepadding=8&textglow&bubble&darkmode&twolines&hidemenu&chroma=0006",
   );
+});
+
+test("sin icono de plataforma, SSN recibe &hidesource", () => {
+  assert.ok(config.chatUrl(appearance({ session: "S", showPlatform: false })).includes("&hidesource"));
+  assert.ok(!config.chatUrl(appearance({ session: "S" })).includes("hidesource"));
 });
 
 test("sin sesión no hay URL", () => {

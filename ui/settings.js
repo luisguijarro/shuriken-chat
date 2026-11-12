@@ -9,9 +9,12 @@ const FLAGS = {
   textGlow: "textglow",
   randomColor: "randomcolor",
   fadedTop: "fadedtop",
+  twoLines: "twolines",
 };
 // hidemenu/nomenu se gestionan con la casilla "Ocultar barra de controles".
-const KNOWN_PARAMS = new Set(["session", "ln", "scale", "sidepadding", "chroma", "hidemenu", "nomenu", ...Object.values(FLAGS)]);
+const KNOWN_PARAMS = new Set([
+  "session", "ln", "scale", "sidepadding", "chroma", "hidemenu", "nomenu", "hidesource", ...Object.values(FLAGS),
+]);
 
 // ---------- chroma (RGBA hex) ----------
 
@@ -42,6 +45,182 @@ const rgbaCss = (h) =>
 const setChroma = (hex) => setRgba("chroma", hex, "00000066");
 const getChroma = () => getRgba("chroma");
 
+// ---------- fuente del chat ----------
+
+let twitchChannels = [];
+const channelInfo = new Map(); // canal -> { exists, live, … } (comprobado con la app)
+
+async function checkChannel(c) {
+  if (channelInfo.has(c)) return channelInfo.get(c);
+  let info;
+  try {
+    info = await invoke("check_twitch_channel", { channel: c });
+  } catch {
+    info = { exists: null };
+  }
+  if (info.exists !== null) channelInfo.set(c, info); // si falló la red, se reintentará
+  return info;
+}
+
+/** Igual que normalizeChannel en src/sources/twitch-parse.js. */
+function normalizeTwitch(value) {
+  let c = String(value || "").trim().toLowerCase();
+  c = c.replace(/^https?:\/\/(www\.|m\.)?twitch\.tv\//, "").replace(/^[#@]/, "");
+  c = c.split(/[/?#]/)[0];
+  return /^[a-z0-9_]{1,25}$/.test(c) ? c : null;
+}
+
+const getMode = () => (document.querySelector('input[name="mode"]:checked') || {}).value || "native";
+const getTwitchMode = () => (document.querySelector('input[name="twitchMode"]:checked') || {}).value || "account";
+
+function setTwitchMode(mode) {
+  for (const r of document.querySelectorAll('input[name="twitchMode"]')) r.checked = r.value === mode;
+  document.body.classList.toggle("tw-account", mode === "account");
+  document.body.classList.toggle("tw-anon", mode === "anonymous");
+}
+
+function setMode(mode) {
+  for (const r of document.querySelectorAll('input[name="mode"]')) r.checked = r.value === mode;
+  document.body.classList.toggle("mode-native", mode === "native");
+  document.body.classList.toggle("mode-ssn", mode === "ssn");
+}
+
+function renderChannels() {
+  const ul = $("twitchList");
+  ul.textContent = "";
+  for (const c of twitchChannels) {
+    const li = document.createElement("li");
+    const info = channelInfo.get(c);
+    if (info && info.exists === false) {
+      li.classList.add("bad");
+      li.title = "Este canal no existe en Twitch";
+    } else if (info && info.live) {
+      li.classList.add("live");
+      li.title = "En directo ahora";
+    }
+    li.append(document.createTextNode(c));
+    const del = document.createElement("button");
+    del.type = "button";
+    del.title = "Quitar";
+    del.textContent = "×";
+    del.addEventListener("click", () => {
+      twitchChannels = twitchChannels.filter((x) => x !== c);
+      renderChannels();
+      schedulePreview();
+    });
+    li.append(del);
+    ul.append(li);
+  }
+}
+
+async function addTwitch() {
+  const raw = $("twitchInput").value;
+  if (!raw.trim()) return;
+  const c = normalizeTwitch(raw);
+  if (!c) return message("twitchMsg", "Nombre no válido: solo letras, números y _ (máx. 25).", "error");
+  if (twitchChannels.includes(c)) return message("twitchMsg", `#${c} ya está en la lista.`, "");
+  twitchChannels.push(c);
+  $("twitchInput").value = "";
+  message("twitchMsg", `Comprobando #${c}…`, "");
+  renderChannels();
+  schedulePreview();
+  const info = await checkChannel(c);
+  if (!twitchChannels.includes(c)) return;
+  if (info.exists === false) {
+    message("twitchMsg", `#${c} no existe en Twitch. Revisa el nombre (puedes copiarlo de la URL de tu canal).`, "error");
+  } else if (info.exists === null) {
+    message("twitchMsg", `#${c} añadido (no se pudo comprobar si existe).`, "");
+  } else {
+    message("twitchMsg", `#${info.name || c} añadido ✓${info.live ? " · en directo ahora" : " · ahora mismo no está en directo"}`, "ok");
+  }
+  renderChannels();
+}
+
+// ---------- cuenta de Twitch (AutoMod) ----------
+
+let authState = { loggedIn: false, hasDefaultClientId: false, moderation: {} };
+
+function button(text, cls, onClick) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = text;
+  if (cls) b.className = cls;
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+function renderAuth() {
+  const box = $("twitchAccount");
+  box.textContent = "";
+  const line = document.createElement("div");
+  line.className = "row";
+  const label = document.createElement("span");
+  label.className = "grow";
+  if (authState.loggedIn) {
+    label.append("Conectado a tu canal ");
+    const b = document.createElement("b");
+    b.textContent = "#" + authState.login;
+    label.append(b);
+    line.append(label, button("Cerrar sesión", "ghost", logout));
+  } else {
+    label.textContent = "Inicia sesión y se usará tu canal automáticamente.";
+    line.append(label, button("Iniciar sesión con Twitch", "", login));
+  }
+  box.append(line);
+  // En qué canales funciona la revisión del AutoMod.
+  const mod = authState.moderation || {};
+  if (authState.loggedIn && Object.keys(mod).length) {
+    const ul = document.createElement("ul");
+    ul.className = "mod-list";
+    for (const [c, st] of Object.entries(mod)) {
+      const li = document.createElement("li");
+      li.className = st === "ok" ? "ok" : "bad";
+      li.textContent = st === "ok" ? `#${c}: AutoMod activo` : st === "not-mod" ? `#${c}: no eres moderador` : `#${c}: ${st}`;
+      ul.append(li);
+    }
+    box.append(ul);
+  }
+  if (!authState.hasDefaultClientId && !$("twitchClientId").value.trim()) $("clientIdBox").open = true;
+  // Al cambiar de modo, Apariencia ya ha aplicado la vista previa; el chat se actualiza solo.
+}
+
+async function refreshAuth() {
+  try {
+    authState = await invoke("twitch_auth_status");
+  } catch {}
+  renderAuth();
+}
+
+const cleanError = (e) => String((e && e.message) || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+
+async function login() {
+  const clientId = $("twitchClientId").value.trim();
+  if (!clientId && !authState.hasDefaultClientId) {
+    $("clientIdBox").open = true;
+    return message("authMsg", "Primero pon el Client ID de tu app de Twitch (abajo).", "error");
+  }
+  message("authMsg", "Pidiendo código a Twitch…", "");
+  try {
+    const r = await invoke("twitch_login_start", { clientId });
+    $("twitchCode").textContent = r.userCode;
+    $("twitchVerify").href = r.verificationUri;
+    $("twitchLogin").hidden = false;
+    message("authMsg", "Esperando a que autorices la app en Twitch…", "");
+    const st = await invoke("twitch_login_wait");
+    message("authMsg", `¡Sesión iniciada como ${st.login}!`, "ok");
+  } catch (e) {
+    message("authMsg", cleanError(e), "error");
+  }
+  $("twitchLogin").hidden = true;
+  await refreshAuth(); // el estado del AutoMod por canal llega después, por onAuthChanged
+}
+
+async function logout() {
+  await invoke("twitch_logout").catch(() => {});
+  message("authMsg", "Sesión cerrada.", "");
+  refreshAuth();
+}
+
 // ---------- formulario <-> ajustes ----------
 
 let lastLoaded = null;
@@ -50,6 +229,13 @@ function fill(view) {
   lastLoaded = view;
   const a = view.appearance;
   const s = view.system;
+  setMode(view.sources.mode);
+  setTwitchMode(view.sources.twitch.useAccount ? "account" : "anonymous");
+  twitchChannels = [...view.sources.twitch.channels];
+  $("twitchClientId").value = view.sources.twitch.clientId || "";
+  renderChannels();
+  // Comprueba los canales guardados (marca en rojo los que no existen).
+  Promise.all(twitchChannels.map(checkChannel)).then(renderChannels);
   $("session").value = a.session;
   ensureOption($("language"), a.language);
   $("language").value = a.language;
@@ -66,6 +252,7 @@ function fill(view) {
   $("opacity").value = a.opacity;
   $("hideScrollbar").checked = a.hideScrollbar;
   $("hideMenu").checked = a.hideMenu;
+  $("showPlatform").checked = a.showPlatform;
   $("extraParams").value = a.extraParams;
   $("customCss").value = a.customCss;
   $("baseUrl").value = a.baseUrl;
@@ -77,6 +264,14 @@ function fill(view) {
 
 function collect() {
   return {
+    sources: {
+      mode: getMode(),
+      twitch: {
+        useAccount: getTwitchMode() === "account",
+        channels: [...twitchChannels],
+        clientId: $("twitchClientId").value.trim(),
+      },
+    },
     appearance: {
       baseUrl: $("baseUrl").value.trim(),
       session: $("session").value.trim(),
@@ -94,11 +289,13 @@ function collect() {
       textGlow: $("textGlow").checked,
       randomColor: $("randomColor").checked,
       fadedTop: $("fadedTop").checked,
+      twoLines: $("twoLines").checked,
       extraParams: $("extraParams").value.trim(),
       transparentBg: $("transparentBg").checked,
       opacity: Number($("opacity").value),
       hideScrollbar: $("hideScrollbar").checked,
       hideMenu: $("hideMenu").checked,
+      showPlatform: $("showPlatform").checked,
       customCss: $("customCss").value,
     },
     system: {
@@ -143,12 +340,18 @@ function importUrl(text) {
 
   const current = collect();
   const a = current.appearance;
+  current.sources.mode = "ssn"; // quien importa una URL de SSN quiere usar SSN
   a.baseUrl = u.origin + u.pathname;
   a.session = p.get("session");
   a.language = p.get("ln") || a.language;
   if (p.has("scale")) a.scale = Number(p.get("scale")) || 1;
   a.sidePadding = p.has("sidepadding") ? Number(p.get("sidepadding")) || 0 : 0;
-  for (const [key, param] of Object.entries(FLAGS)) a[key] = p.has(param);
+  for (const [key, param] of Object.entries(FLAGS)) {
+    if (key === "twoLines") continue; // preferencia de Shuriken: solo se activa si viene en la URL
+    a[key] = p.has(param);
+  }
+  if (p.has("twolines")) a.twoLines = true;
+  a.showPlatform = !p.has("hidesource");
   // La URL de OBS no suele llevarlo (allí se oculta sola): solo lo activamos si viene.
   if (p.has("hidemenu") || p.has("nomenu")) a.hideMenu = true;
   a.useChroma = p.has("chroma");
@@ -197,8 +400,16 @@ async function load() {
 }
 
 document.addEventListener("input", (e) => {
-  if (e.target.id === "importUrl") return;
+  if (e.target.id === "importUrl" || e.target.id === "twitchInput") return;
+  if (e.target.name === "mode") setMode(getMode());
+  if (e.target.name === "twitchMode") setTwitchMode(getTwitchMode());
   schedulePreview();
+});
+
+$("twitchAdd").addEventListener("click", addTwitch);
+$("twitchCancel").addEventListener("click", () => invoke("twitch_login_cancel").catch(() => {}));
+$("twitchInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") addTwitch();
 });
 
 $("importBtn").addEventListener("click", () => importUrl($("importUrl").value));
@@ -243,4 +454,5 @@ $("revert").addEventListener("click", async () => {
   message("status", "Cambios descartados", "");
 });
 
-load().catch((e) => message("status", String(e), "error"));
+if (window.shuriken.onAuthChanged) window.shuriken.onAuthChanged(refreshAuth);
+load().then(refreshAuth).catch((e) => message("status", String(e), "error"));

@@ -40,6 +40,20 @@ try {
   console.warn("[shuriken] no se pudo bloquear multimedia:", e);
 }
 
+// ---------- 1b. Puente del chat propio (solo en nuestra página ui/chat.html) ----------
+if (window.top === window && location.protocol === "file:" && /\/ui\/chat\.html$/.test(location.pathname)) {
+  const CHANNELS = new Set(["event", "style", "backlog"]);
+  contextBridge.exposeInMainWorld("shurikenChat", {
+    on: (name, cb) => {
+      if (CHANNELS.has(name) && typeof cb === "function") {
+        ipcRenderer.on("shuriken:chat-" + name, (_e, data) => cb(data));
+      }
+    },
+    // Aprobar (allow=true) o denegar un mensaje retenido por el AutoMod.
+    automod: (id, allow) => ipcRenderer.invoke("shuriken:automod", { id: String(id), allow: !!allow }),
+  });
+}
+
 // ---------- 2. Menú contextual (en cualquier frame) ----------
 document.addEventListener("contextmenu", (e) => {
   e.preventDefault();

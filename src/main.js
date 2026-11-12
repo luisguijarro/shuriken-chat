@@ -4,9 +4,13 @@
 
 const path = require("path");
 const {
-  app, BrowserWindow, Menu, Tray, WebContentsView, ipcMain, nativeImage, screen, session, shell,
+  app, BrowserWindow, Menu, Tray, WebContentsView, ipcMain, nativeImage, safeStorage, screen, session, shell,
 } = require("electron");
 const config = require("./config");
+const { SourceManager } = require("./sources");
+const { lookupChannel } = require("./sources/twitch-assets");
+const { TwitchAuth, DEFAULT_CLIENT_ID } = require("./sources/twitch-auth");
+const { normalizeChannel } = require("./sources/twitch-parse");
 
 const UI = path.join(__dirname, "..", "ui");
 const ICONS = path.join(__dirname, "..", "assets", "icons");
@@ -16,9 +20,12 @@ const ZOOM_MIN = 0.3;
 const ZOOM_MAX = 3;
 const MIN_W = 120;
 const MIN_H = 80;
+const NATIVE = "shuriken:native"; // "URL" del chat propio (modo plataformas)
 const EDGE = 6; // px sensibles al borde para redimensionar (igual que en el preload)
 
 let cfg = config.load();
+const sources = new SourceManager();
+let twitchAuth = null; // sesión de Twitch (se crea al arrancar: safeStorage necesita la app lista)
 let chatWin = null; // ventana: carga ui/frame.html (borde, fondo, esquinas)
 let chatView = null; // vista interior con SSN, desplazada según el margen
 let settingsWin = null;
@@ -147,26 +154,56 @@ function pageState(wc) {
   return { locked: cfg.window.locked, edges: config.frameLayout(cfg.appearance).inset < EDGE };
 }
 
+/** Qué se carga en la vista del chat: nuestro chat propio o el dock de SSN. */
+const chatTarget = () => (cfg.sources.mode === "native" ? NATIVE : config.chatUrl(cfg.appearance));
+const nativeChat = () => currentUrl === NATIVE;
+
 function loadChat() {
-  currentUrl = config.chatUrl(cfg.appearance);
+  currentUrl = chatTarget();
   const wc = chatWc();
   if (!wc) return;
-  if (currentUrl) wc.loadURL(currentUrl);
+  if (currentUrl === NATIVE) wc.loadFile(path.join(UI, "chat.html"));
+  else if (currentUrl) wc.loadURL(currentUrl);
   else wc.loadFile(path.join(UI, "welcome.html"));
+}
+
+/** Ajustes de aspecto que usa el chat propio (ui/chat.js). */
+function pushChatStyle() {
+  if (!nativeChat()) return;
+  const a = cfg.appearance;
+  chatWc()?.send("shuriken:chat-style", {
+    darkMode: a.darkMode,
+    bubble: a.bubble,
+    textGlow: a.textGlow,
+    randomColor: a.randomColor,
+    fadedTop: a.fadedTop,
+    scale: a.scale,
+    sidePadding: a.sidePadding,
+    // Canales configurados: el chat muestra su estado mientras no hay mensajes.
+    channels: sources.twitchChannels(cfg.sources).map((channel) => ({ platform: "twitch", channel })),
+    // Para el aviso de "sin canal": qué le falta al usuario.
+    needs: cfg.sources.twitch.useAccount ? "login" : "channel",
+    twoLines: a.twoLines,
+    showPlatform: a.showPlatform,
+  });
 }
 
 function applySettings(settings) {
   const s = config.normalize({ ...settings, window: cfg.window });
+  cfg.sources = s.sources;
   cfg.appearance = s.appearance;
   cfg.system = s.system;
-  const url = config.chatUrl(cfg.appearance);
+  sources.apply(cfg.sources);
   if (alive(chatWin)) {
-    if (url !== currentUrl) loadChat();
-    else applyPageCss();
+    if (chatTarget() !== currentUrl) loadChat();
+    else {
+      applyPageCss();
+      pushChatStyle();
+    }
     applyFrameCss();
     layoutChat();
   }
-  return url;
+  return config.chatUrl(cfg.appearance); // la URL de SSN equivalente (para OBS)
 }
 
 // ---------------------------------------------------------------------------
@@ -348,6 +385,10 @@ function openSettings() {
     },
   });
   settingsWin.setMenu(null);
+  settingsWin.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https:\/\/(www\.|dev\.)?twitch\.tv\//i.test(url)) shell.openExternal(url);
+    return { action: "deny" };
+  });
   settingsWin.loadFile(path.join(UI, "settings.html"));
   // Si se cierra sin guardar, se descartan los cambios previsualizados.
   settingsWin.on("closed", () => {
@@ -417,6 +458,10 @@ function createChatWindow() {
     cssKeys.delete(wc);
     applyPageCss();
     pushPageState();
+    if (nativeChat()) {
+      pushChatStyle();
+      wc.send("shuriken:chat-backlog", sources.snapshot());
+    }
   });
 
   // SHURIKEN_DEBUG=1: consola de la página en la terminal + comprobaciones.
@@ -508,6 +553,13 @@ function registerIpc() {
     if (fromChat(e)) stopDrag();
   });
   ipcMain.handle("shuriken:page-state", (e) => (fromChat(e) ? pageState(e.sender) : null));
+  // Aprobar/denegar un mensaje del AutoMod: solo desde NUESTRA página del chat (nunca desde SSN).
+  ipcMain.handle("shuriken:automod", (e, { id, allow } = {}) => {
+    const ours = nativeChat() && e.sender === chatWc() && e.senderFrame === e.sender.mainFrame &&
+      /\/ui\/chat\.html$/.test(new URL(e.senderFrame.url).pathname);
+    if (!ours || typeof id !== "string") throw new Error("no permitido");
+    return sources.automodAction(id, !!allow);
+  });
 
   const settingsCmd = (name, fn) =>
     ipcMain.handle("shuriken:" + name, (e, args) => {
@@ -515,6 +567,30 @@ function registerIpc() {
       return fn(args || {});
     });
   settingsCmd("get_settings", () => settingsView());
+  // ---- Sesión de Twitch (opcional: para revisar el AutoMod) ----
+  const clientIdFor = (id) => String(id || "").trim() || cfg.sources.twitch.clientId || DEFAULT_CLIENT_ID;
+  settingsCmd("twitch_auth_status", () => ({
+    ...twitchAuth.status(),
+    hasDefaultClientId: !!DEFAULT_CLIENT_ID,
+    moderation: sources.moderation,
+  }));
+  settingsCmd("twitch_login_start", async ({ clientId }) => {
+    const r = await twitchAuth.startLogin(clientIdFor(clientId));
+    shell.openExternal(r.verificationUri); // la página ya lleva el código rellenado
+    return r;
+  });
+  settingsCmd("twitch_login_wait", () => {
+    if (!twitchAuth.pending) throw new Error("No hay ningún inicio de sesión en curso.");
+    return twitchAuth.pending.done;
+  });
+  settingsCmd("twitch_login_cancel", () => twitchAuth.cancelLogin());
+  settingsCmd("twitch_logout", () => twitchAuth.logout());
+
+  // ¿Existe este canal de Twitch y está en directo?
+  settingsCmd("check_twitch_channel", ({ channel }) => {
+    const c = normalizeChannel(channel);
+    return c ? lookupChannel(c) : { exists: false };
+  });
   // Aplica los ajustes en vivo, sin guardarlos. Devuelve la URL resultante.
   settingsCmd("preview_settings", ({ settings }) => applySettings(settings));
   settingsCmd("save_settings", ({ settings }) => {
@@ -534,12 +610,31 @@ function registerIpc() {
 // ---------------------------------------------------------------------------
 
 function start() {
+  twitchAuth = new TwitchAuth(config.configDir(), safeStorage);
+  sources.setAuth(twitchAuth);
   lockDownPermissions();
   registerIpc();
+  sources.on("event", (ev) => {
+    if (nativeChat()) chatWc()?.send("shuriken:chat-event", ev);
+  });
+  // Estado del AutoMod por canal: se avisa a Apariencia en cuanto se conoce.
+  sources.on("moderation", () => {
+    if (alive(settingsWin)) settingsWin.webContents.send("shuriken:auth-changed");
+  });
+  twitchAuth.on("change", () => {
+    if (alive(settingsWin)) settingsWin.webContents.send("shuriken:auth-changed");
+    pushChatStyle(); // con cuenta, el canal cambia al iniciar o cerrar sesión
+  });
+  sources.apply(cfg.sources);
   createChatWindow();
   buildTray();
-  if (!cfg.appearance.session.trim()) openSettings();
+  // Primera vez (o sin nada que mostrar): abrir Apariencia.
+  const nothing = cfg.sources.mode === "native" ? !sources.twitchChannels(cfg.sources).length : !cfg.appearance.session.trim();
+  if (nothing) openSettings();
 }
 
 app.on("window-all-closed", () => app.quit());
-app.on("before-quit", persistWindow);
+app.on("before-quit", () => {
+  sources.stop();
+  persistWindow();
+});
