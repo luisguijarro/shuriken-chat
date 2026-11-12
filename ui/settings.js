@@ -47,19 +47,96 @@ const getChroma = () => getRgba("chroma");
 
 // ---------- fuente del chat ----------
 
-let twitchChannels = [];
-const channelInfo = new Map(); // canal -> { exists, live, … } (comprobado con la app)
-
-async function checkChannel(c) {
-  if (channelInfo.has(c)) return channelInfo.get(c);
-  let info;
-  try {
-    info = await invoke("check_twitch_channel", { channel: c });
-  } catch {
-    info = { exists: null };
+/**
+ * Lista de canales de una plataforma: casilla para escribir, etiquetas y
+ * comprobación de que el canal existe (y si está en directo).
+ */
+class ChannelList {
+  constructor({ id, platform, prefix, normalize, invalidMsg, checkCmd }) {
+    Object.assign(this, { platform, prefix, normalize, invalidMsg, checkCmd });
+    this.input = $(id + "Input");
+    this.list = $(id + "List");
+    this.msgId = id + "Msg";
+    this.channels = [];
+    this.info = new Map(); // canal -> { exists, name, live }
+    $(id + "Add").addEventListener("click", () => this.add());
+    this.input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") this.add();
+    });
   }
-  if (info.exists !== null) channelInfo.set(c, info); // si falló la red, se reintentará
-  return info;
+
+  label(c, info) {
+    return this.prefix + ((info && info.name) || c);
+  }
+
+  set(list) {
+    this.channels = [...list];
+    this.render();
+    // Comprueba los canales guardados (marca en rojo los que no existen).
+    Promise.all(this.channels.map((c) => this.check(c))).then(() => this.render());
+  }
+
+  async check(c) {
+    if (this.info.has(c)) return this.info.get(c);
+    let info;
+    try {
+      info = await invoke(this.checkCmd, { channel: c });
+    } catch {
+      info = { exists: null };
+    }
+    if (info.exists !== null) this.info.set(c, info); // si falló la red, se reintentará
+    return info;
+  }
+
+  render() {
+    this.list.textContent = "";
+    for (const c of this.channels) {
+      const li = document.createElement("li");
+      const info = this.info.get(c);
+      if (info && info.exists === false) {
+        li.classList.add("bad");
+        li.title = `Este canal no existe en ${this.platform}`;
+      } else if (info && info.live) {
+        li.classList.add("live");
+        li.title = "En directo ahora";
+      }
+      li.append(document.createTextNode(c));
+      const del = document.createElement("button");
+      del.type = "button";
+      del.title = "Quitar";
+      del.textContent = "×";
+      del.addEventListener("click", () => {
+        this.channels = this.channels.filter((x) => x !== c);
+        this.render();
+        schedulePreview();
+      });
+      li.append(del);
+      this.list.append(li);
+    }
+  }
+
+  async add() {
+    const raw = this.input.value;
+    if (!raw.trim()) return;
+    const c = this.normalize(raw);
+    if (!c) return message(this.msgId, this.invalidMsg, "error");
+    if (this.channels.includes(c)) return message(this.msgId, `${this.prefix}${c} ya está en la lista.`, "");
+    this.channels.push(c);
+    this.input.value = "";
+    message(this.msgId, `Comprobando ${this.prefix}${c}…`, "");
+    this.render();
+    schedulePreview();
+    const info = await this.check(c);
+    if (!this.channels.includes(c)) return;
+    if (info.exists === false) {
+      message(this.msgId, `${this.prefix}${c} no existe en ${this.platform}. Revisa el nombre (puedes copiarlo de la URL del canal).`, "error");
+    } else if (info.exists === null) {
+      message(this.msgId, `${this.prefix}${c} añadido (no se pudo comprobar si existe).`, "");
+    } else {
+      message(this.msgId, `${this.label(c, info)} añadido ✓${info.live ? " · en directo ahora" : " · ahora mismo no está en directo"}`, "ok");
+    }
+    this.render();
+  }
 }
 
 /** Igual que normalizeChannel en src/sources/twitch-parse.js. */
@@ -69,6 +146,23 @@ function normalizeTwitch(value) {
   c = c.split(/[/?#]/)[0];
   return /^[a-z0-9_]{1,25}$/.test(c) ? c : null;
 }
+
+/** Igual que normalizeKickChannel en src/sources/kick-parse.js. */
+function normalizeKick(value) {
+  let c = String(value || "").trim().toLowerCase();
+  c = c.replace(/^https?:\/\/(www\.)?kick\.com\//, "").replace(/^popout\//, "").replace(/^@/, "");
+  c = c.split(/[/?#]/)[0].replace(/_/g, "-");
+  return /^[a-z0-9][a-z0-9-]{1,39}$/.test(c) ? c : null;
+}
+
+const twitchList = new ChannelList({
+  id: "twitch", platform: "Twitch", prefix: "#", normalize: normalizeTwitch, checkCmd: "check_twitch_channel",
+  invalidMsg: "Nombre no válido: solo letras, números y _ (máx. 25).",
+});
+const kickList = new ChannelList({
+  id: "kick", platform: "Kick", prefix: "", normalize: normalizeKick, checkCmd: "check_kick_channel",
+  invalidMsg: "Nombre no válido: solo letras, números, _ y - (o pega la URL del canal).",
+});
 
 const getMode = () => (document.querySelector('input[name="mode"]:checked') || {}).value || "native";
 const getTwitchMode = () => (document.querySelector('input[name="twitchMode"]:checked') || {}).value || "account";
@@ -83,57 +177,6 @@ function setMode(mode) {
   for (const r of document.querySelectorAll('input[name="mode"]')) r.checked = r.value === mode;
   document.body.classList.toggle("mode-native", mode === "native");
   document.body.classList.toggle("mode-ssn", mode === "ssn");
-}
-
-function renderChannels() {
-  const ul = $("twitchList");
-  ul.textContent = "";
-  for (const c of twitchChannels) {
-    const li = document.createElement("li");
-    const info = channelInfo.get(c);
-    if (info && info.exists === false) {
-      li.classList.add("bad");
-      li.title = "Este canal no existe en Twitch";
-    } else if (info && info.live) {
-      li.classList.add("live");
-      li.title = "En directo ahora";
-    }
-    li.append(document.createTextNode(c));
-    const del = document.createElement("button");
-    del.type = "button";
-    del.title = "Quitar";
-    del.textContent = "×";
-    del.addEventListener("click", () => {
-      twitchChannels = twitchChannels.filter((x) => x !== c);
-      renderChannels();
-      schedulePreview();
-    });
-    li.append(del);
-    ul.append(li);
-  }
-}
-
-async function addTwitch() {
-  const raw = $("twitchInput").value;
-  if (!raw.trim()) return;
-  const c = normalizeTwitch(raw);
-  if (!c) return message("twitchMsg", "Nombre no válido: solo letras, números y _ (máx. 25).", "error");
-  if (twitchChannels.includes(c)) return message("twitchMsg", `#${c} ya está en la lista.`, "");
-  twitchChannels.push(c);
-  $("twitchInput").value = "";
-  message("twitchMsg", `Comprobando #${c}…`, "");
-  renderChannels();
-  schedulePreview();
-  const info = await checkChannel(c);
-  if (!twitchChannels.includes(c)) return;
-  if (info.exists === false) {
-    message("twitchMsg", `#${c} no existe en Twitch. Revisa el nombre (puedes copiarlo de la URL de tu canal).`, "error");
-  } else if (info.exists === null) {
-    message("twitchMsg", `#${c} añadido (no se pudo comprobar si existe).`, "");
-  } else {
-    message("twitchMsg", `#${info.name || c} añadido ✓${info.live ? " · en directo ahora" : " · ahora mismo no está en directo"}`, "ok");
-  }
-  renderChannels();
 }
 
 // ---------- cuenta de Twitch (AutoMod) ----------
@@ -231,11 +274,9 @@ function fill(view) {
   const s = view.system;
   setMode(view.sources.mode);
   setTwitchMode(view.sources.twitch.useAccount ? "account" : "anonymous");
-  twitchChannels = [...view.sources.twitch.channels];
+  twitchList.set(view.sources.twitch.channels);
+  kickList.set(view.sources.kick.channels);
   $("twitchClientId").value = view.sources.twitch.clientId || "";
-  renderChannels();
-  // Comprueba los canales guardados (marca en rojo los que no existen).
-  Promise.all(twitchChannels.map(checkChannel)).then(renderChannels);
   $("session").value = a.session;
   ensureOption($("language"), a.language);
   $("language").value = a.language;
@@ -268,9 +309,10 @@ function collect() {
       mode: getMode(),
       twitch: {
         useAccount: getTwitchMode() === "account",
-        channels: [...twitchChannels],
+        channels: [...twitchList.channels],
         clientId: $("twitchClientId").value.trim(),
       },
+      kick: { channels: [...kickList.channels] },
     },
     appearance: {
       baseUrl: $("baseUrl").value.trim(),
@@ -400,17 +442,13 @@ async function load() {
 }
 
 document.addEventListener("input", (e) => {
-  if (e.target.id === "importUrl" || e.target.id === "twitchInput") return;
+  if (["importUrl", "twitchInput", "kickInput"].includes(e.target.id)) return;
   if (e.target.name === "mode") setMode(getMode());
   if (e.target.name === "twitchMode") setTwitchMode(getTwitchMode());
   schedulePreview();
 });
 
-$("twitchAdd").addEventListener("click", addTwitch);
 $("twitchCancel").addEventListener("click", () => invoke("twitch_login_cancel").catch(() => {}));
-$("twitchInput").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") addTwitch();
-});
 
 $("importBtn").addEventListener("click", () => importUrl($("importUrl").value));
 $("importUrl").addEventListener("keydown", (e) => {

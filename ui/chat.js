@@ -84,6 +84,7 @@ function emoteImg(p) {
 
 function renderParts(parts) {
   const span = el("span", "text");
+  span.dir = "auto"; // árabe, hebreo…: de derecha a izquierda según el propio texto
   let lastEmote = null;
   for (const p of parts || []) {
     if (p.type === "emote") {
@@ -117,7 +118,7 @@ function renderParts(parts) {
   return span;
 }
 
-const PLATFORMS = { twitch: "Twitch" }; // iconos en ui/platforms/<plataforma>.svg
+const PLATFORMS = { twitch: "Twitch", kick: "Kick" }; // iconos en ui/platforms/<plataforma>.svg
 
 /** Icono de la plataforma de origen (se oculta con la opción, sin volver a pintar). */
 function platformIcon(platform) {
@@ -134,7 +135,8 @@ function renderMeta(ev, color) {
   const icon = platformIcon(ev.platform);
   if (icon) meta.append(icon);
   for (const b of ev.badges || []) {
-    const src = safeUrl(b.url);
+    // Insignias remotas (http/https) o iconos propios de la app (ui/badges/…).
+    const src = /^badges\/[a-z0-9/-]+\.svg$/.test(b.url || "") ? b.url : safeUrl(b.url);
     if (!src) continue;
     const img = el("img", "badge");
     img.src = src;

@@ -14,7 +14,7 @@ Todo se muestra en una ventana **sin bordes, transparente, redimensionable, arra
 
 ## Ramas y releases
 
-- **Una rama por plataforma**, con el nombre de la plataforma (`twitch`, luego `kick`, `youtube`…), y **una release por cada plataforma añadida**. Versiones: 0.2.0 = solo SSN (master), 0.3.0 = Twitch.
+- **Una rama por plataforma**, con el nombre de la plataforma (`twitch`, luego `kick`, `youtube`…), y **una release por cada plataforma añadida**. Versiones: 0.2.0 = solo SSN, 0.3.0 = Twitch (publicada), 0.4.0 = Kick.
 - Tras terminar una plataforma: tests, prueba en vivo, commit en su rama, push y AppImage (`npm run build:appimage`). Fusionar en master y publicar la release solo cuando el usuario lo confirme.
 - El remoto `origin` es un Gitea/Forgejo propio (git.dark-pi.net).
 
@@ -37,6 +37,9 @@ src/sources/twitch-parse.js  Puro y testeado: parseIrc, normalizeChannel, tokeni
 src/sources/twitch-assets.js Emotes 7TV/BTTV/FFZ (canal + globales) e insignias (IVR), APIs públicas sin auth
 src/sources/twitch-auth.js   Sesión opcional de Twitch: device code flow (cliente público), tokens cifrados, refresh, Helix
 src/sources/twitch-eventsub.js EventSub por WebSocket: AutoMod (automod.message.hold/update v2) y aprobar/denegar
+src/sources/kick.js          Conector de Kick: API pública del canal + Pusher (sin cuenta), 7TV, avisos
+src/sources/kick-parse.js    Puro y testeado: normalizeKickChannel, parseKickContent ([emote:id:nombre]), insignias
+ui/badges/kick/*.svg         Iconos propios de las insignias clásicas de Kick (vienen sin imagen)
 ui/chat.html/.css/.js     Render del chat propio (modo plataformas)
 ui/settings.html/.css/.js Ventana "Apariencia…": formulario, importar URL de SSN, vista previa en vivo
 ui/frame.html             Marco de la ventana del chat (borde, fondo chroma, esquinas); estilo inyectado con frameCss()
@@ -81,6 +84,16 @@ test/config.test.js       Tests de config (node --test)
 - `showPlatform` (true por defecto): icono de la plataforma delante del nombre (`ui/platforms/<plataforma>.svg`, mapa `PLATFORMS` en chat.js). Se oculta con la clase `noplatform` sin volver a pintar. En SSN, si es false se añade `&hidesource` (SSN muestra los iconos de origen por defecto). **Al añadir una plataforma**: su SVG en `ui/platforms/` y su entrada en `PLATFORMS`.
 - En modo SSN, cambiar opciones que van en la URL recarga el dock y **SSN pierde los mensajes** (no tiene historial): es inevitable. En modo plataformas el aspecto se aplica sin recargar (comprobado).
 
+## Kick
+
+- **Sin cuenta y sin servidores**, como el modo WebSocket de SSN. La API oficial de Kick entrega el chat por webhooks (necesitaría un servidor): descartada porque el usuario quiere una app sin dependencias externas.
+- Datos del canal: `GET kick.com/api/v2/channels/<slug>` (fetch normal de Node, sin cabeceras especiales) → `id` (canal), `chatroom.id`, `user_id`, `subscriber_badges`, `livestream`. 404 = no existe (se avisa al momento). En la URL los `_` del usuario son `-` (`normalizeKickChannel`).
+- Tiempo real: Pusher `wss://ws-us2.pusher.com/app/34bf7a0ff419a2a775b9` (clave y clúster que usa SSN; las antiguas `eb1d5f…` y `32cbd6…` ya no valen). Canales públicos `chatrooms.<chatroomId>.v2`, `channel.<channelId>` y `channel_<channelId>` (auth vacío). Ping de Pusher según `activity_timeout`.
+- Eventos: `App\Events\ChatMessageEvent` (type `message`/`reply`, emotes en el texto como `[emote:ID:nombre]` → `files.kick.com/emotes/ID/fullsize`), `MessageDeletedEvent` (`message.id`), baneos, `ChatroomClearEvent`, subs, subs regaladas, raids/hosts y KICKs. Kick no documenta los eventos poco frecuentes: se extraen con `pick()` probando varias rutas (como hace SSN).
+- Insignias: `identity.badges` (clásicas sin imagen → iconos propios; suscriptor → imagen del canal según meses) + `identity.badges_v2` con `selected` (imagen propia de Kick, p. ej. niveles).
+- 7TV funciona con Kick por **user_id** (`7tv.io/v3/users/kick/<user_id>`), no por id de canal.
+- **Permisos de Claude Code**: el clasificador bloqueó probar Kick (lo consideró acceso a terceros). El usuario añadió reglas en `.claude/settings.local.json` (no se sube): scripts `node …/scratchpad/kick*`, `npm start`, `npm test` y `env -u ELECTRON_RUN_AS_NODE node_modules/electron/dist/electron *`. Para pruebas de la app, que el script fije `XDG_CONFIG_HOME` él mismo (así el comando encaja con la regla).
+
 ## Sesión de Twitch y AutoMod (opcional)
 
 - **Dos formas de conectar Twitch** (`sources.twitch.useAccount`): **con mi cuenta** → el canal es el del usuario que inicia sesión (automático) y hay AutoMod; **sin cuenta** → canales escritos a mano, solo lectura, sin AutoMod. Los canales efectivos los calcula `SourceManager.twitchChannels(sources)` (úsalo siempre, no `sources.twitch.channels` directamente). Por defecto: con cuenta, salvo que ya hubiera canales escritos. La sesión y la lista se conservan al alternar. Al iniciar/cerrar sesión se reaplica la config y se reenvía el estilo al chat.
@@ -116,6 +129,8 @@ Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm
 
 ## Estado actual
 
+- 🚧 Rama `kick` (v0.4.0): Kick sin cuenta. Probado en vivo (canal inexistente, canal en directo, mensajes, emotes, insignias, respuestas). Pendiente: que el usuario lo pruebe, PR y release.
+- ✅ v0.3.0 (Twitch) fusionada y publicada como release en el Forgejo (`fj release create`; `fj release view` busca por nombre, no por etiqueta).
 - 🚧 AutoMod con sesión: hecho y probado sin sesión (render, hover, errores, tests). Client ID incluido; Twitch acepta el inicio del flujo. Pendiente: que el usuario inicie sesión y lo pruebe con un mensaje retenido real. La app está registrada como **Público** (comprobado en la consola; la `verification_uri` devuelta no lleva `public=true` aunque el ejemplo de la documentación sí, y es normal).
 - 🚧 Rama `twitch` (v0.3.0): chat propio con Twitch. Probado en vivo con canales reales (mensajes, colores, insignias, emotes 7TV, añadir canal desde Apariencia, canal inexistente, cambios de aspecto sin perder mensajes). Pendiente: que el usuario lo pruebe con su canal, fusionar en master y publicar release (falta saber cómo publicar en su Gitea: token o `tea`).
 - ✅ master (v0.2.0): modo SSN sobre Electron, ya publicado en `origin`.
