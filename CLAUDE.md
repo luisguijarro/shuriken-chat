@@ -14,7 +14,7 @@ Todo se muestra en una ventana **sin bordes, transparente, redimensionable, arra
 
 ## Ramas y releases
 
-- **Una rama por plataforma o feature**, con su nombre (`twitch`, `kick`, `youtube`, `obs`…), y **una release por cada una**. Versiones: 0.2.0 = solo SSN, 0.3.0 = Twitch, 0.4.0 = Kick, 0.5.0 = YouTube (publicadas), 0.6.0 = OBS.
+- **Una rama por plataforma o feature**, con su nombre (`twitch`, `kick`, `youtube`, `obs`…), y **una release por cada una**. Versiones: 0.2.0 = solo SSN, 0.3.0 = Twitch, 0.4.0 = Kick, 0.5.0 = YouTube, 0.6.0 = OBS (publicadas), 0.6.1 = paquetes .deb/.rpm/.pacman.
 - Tras terminar una plataforma: tests, prueba en vivo, commit en su rama, push y AppImage (`npm run build:appimage`). Fusionar en master y publicar la release solo cuando el usuario lo confirme.
 - El remoto `origin` es un Gitea/Forgejo propio (git.dark-pi.net).
 - **Releases**: adjuntar AppImage, `.deb`, `.rpm` y `.pacman` + `SHA256SUMS.txt` (`fj release create --tag vX --attach …`).
@@ -170,6 +170,9 @@ npm run build:appimage        # solo AppImage (~125 MB)
 Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm start`.
 
 ## Estado actual
+
+- 🚧 Rama `packaging` (v0.6.1): AppImage + .deb + .rpm + .pacman. Revisados por dentro los cuatro; el .pacman instalado y probado por el usuario (arranca). Pendiente: PR y release con los cuatro paquetes. Flathub aparcado (ver "Empaquetado").
+- ✅ v0.6.0 (OBS) fusionada y publicada.
 
 - 🚧 Rama `obs` (v0.6.0): chat para OBS idéntico a la app. Probado: app y vista de OBS lado a lado (mismos mensajes, maquetación, marco y zoom, escalado ×1,48), modo SSN (URL con b64css), sección OBS en Configuración. Pendiente: que el usuario lo pruebe en OBS de verdad, PR y release.
 - ✅ v0.5.0 (YouTube) fusionada y publicada.
