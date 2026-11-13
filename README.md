@@ -50,7 +50,7 @@ Tiene dos modos (*Fuente del chat*):
 
 - 💬 **Twitch, Kick y YouTube en un solo chat**, cada mensaje con el icono de su plataforma.
 - 🎥 **También en OBS**, idéntico a la ventana del escritorio y con las mismas proporciones.
-- 📷 **Ventana de webcam** aparte, con el mismo marco que el chat (ideal con la cámara virtual de OBS).
+- 📷 **Ventana de webcam** aparte, con el mismo borde y esquinas que el chat (ideal con la cámara virtual de OBS).
 - 😀 **Se ve como en cada plataforma**: emotes del canal (también los de suscriptor), **7TV, BTTV y FFZ**, insignias oficiales, colores de usuario, Super Chats con su color…
 - 🛡️ **Revisión del AutoMod de Twitch** desde el propio chat (con tu cuenta): el mensaje retenido no se muestra; al pasar el ratón lo ves y lo permites o deniegas.
 - 🟢 **Estado de cada plataforma** de un vistazo: iconos con un punto de color arriba a la derecha.
@@ -153,7 +153,7 @@ El chat para OBS se activa o se para desde *Configuración → OBS*, el botón �
 
 ## Ventana de webcam
 
-Una ventana aparte con tu webcam, con el **mismo marco** que el chat (borde, esquinas, margen y fondo). Se mueve, se redimensiona, tiene su propio «siempre visible» y «bloquear», y su menú con el **clic derecho** (Configuración, espejo, ocultar…).
+Una ventana aparte con tu webcam, con el **mismo borde y esquinas** que el chat (sin margen: la imagen llega hasta el borde). Se mueve, se redimensiona, tiene su propio «siempre visible» y «bloquear», y su menú con el **clic derecho** (Configuración, espejo, ocultar…).
 
 1. En **Configuración → Webcam**, elige la cámara y marca **Mostrar la ventana de webcam**.
 2. Si quieres verte como en un espejo, marca **Voltear horizontalmente**.

@@ -70,7 +70,7 @@ test("marco: geometría y CSS", () => {
   assert.match(config.frameCss(appearance({ borderWidth: 1, borderColor: "nope" })), /solid #ffffff66/);
 });
 
-test("webcam: valores por defecto y CSS con el mismo marco que el chat", () => {
+test("webcam: valores por defecto y CSS con el mismo borde que el chat, sin margen", () => {
   const c = config.normalize({});
   assert.deepStrictEqual(c.webcam, { enabled: false, deviceId: "", deviceLabel: "", mirror: true });
   assert.deepStrictEqual(c.webcamWindow, { x: null, y: null, width: 360, height: 270, alwaysOnTop: true, locked: false });
@@ -78,5 +78,6 @@ test("webcam: valores por defecto y CSS con el mismo marco que el chat", () => {
   const a = { ...c.appearance, borderWidth: 2, margin: 6, cornerRadius: 20 };
   const css = config.webcamCss(a);
   assert.ok(css.startsWith(config.frameCss(a)), "mismo marco que el chat");
-  assert.match(css, /#view,#msg\{left:8px!important;top:8px!important;right:8px!important;bottom:8px!important;border-radius:12px;\}/);
+  // Sin margen: el vídeo empieza justo dentro del borde (2 px) y sus esquinas son concéntricas (20 - 2).
+  assert.match(css, /#view,#msg\{left:2px!important;top:2px!important;right:2px!important;bottom:2px!important;border-radius:18px;\}/);
 });

@@ -264,10 +264,10 @@ function frameCss(appearance, opacityTarget = "html") {
   return `.frame{border:${bd};border-radius:${radius}px;background:${bg};}\n` + opacityCss(a).replace(/^html\{/, opacityTarget + "{");
 }
 
-/** CSS de la ventana de webcam: el mismo marco que el chat y el vídeo dentro, con el
- *  mismo margen y esquinas concéntricas (como la vista del chat dentro de su marco). */
+/** CSS de la ventana de webcam: el mismo borde y esquinas que el chat, pero SIN margen
+ *  (decisión del usuario): el vídeo llega hasta el borde, con esquinas concéntricas. */
 function webcamCss(appearance) {
-  const { inset, innerRadius } = frameLayout(appearance);
+  const { inset, innerRadius } = frameLayout({ ...withDefaults(DEFAULT_APPEARANCE, appearance), margin: 0 });
   return frameCss(appearance) +
     // !important: la página tiene "inset: 0" de base y, a igual especificidad, ganaba.
     `#view,#msg{left:${inset}px!important;top:${inset}px!important;right:${inset}px!important;bottom:${inset}px!important;border-radius:${innerRadius}px;}\n`;
