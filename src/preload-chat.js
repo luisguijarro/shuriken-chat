@@ -276,4 +276,45 @@ if (window.top === window) {
   };
   window.addEventListener("mouseup", stop, true);
   window.addEventListener("blur", stop);
+
+  // ---- Shift + arrastrar: lo mueve el GESTOR DE VENTANAS ----
+  // El arrastre normal lo hace la app (mueve la ventana siguiendo al ratón) y por eso el
+  // escritorio no lo ve como un arrastre: en KDE no salen las "tiles" con Shift, ni el
+  // ajuste a los bordes. Con Shift pulsado se pone encima una capa invisible marcada como
+  // región de arrastre (-webkit-app-region: drag): al pulsar ahí, Chromium le pide al
+  // gestor de ventanas (KWin, Windows, macOS) que mueva la ventana él, con sus tiles/Snap.
+  // Esa capa no deja pasar clics, así que solo existe mientras Shift está pulsado y se
+  // retira sola si dejan de llegar eventos (para que los clics nunca queden bloqueados).
+  const NATIVE_TTL_MS = 1000;
+  let nativeLayer = null;
+  let nativeTimer = null;
+
+  function nativeDrag(on) {
+    if (on && (locked || dragging)) on = false;
+    clearTimeout(nativeTimer);
+    if (!on) {
+      if (nativeLayer && nativeLayer.isConnected) nativeLayer.remove();
+      return;
+    }
+    if (!document.documentElement) return;
+    if (!nativeLayer) {
+      nativeLayer = document.createElement("div");
+      nativeLayer.id = "shuriken-native-drag";
+      Object.assign(nativeLayer.style, {
+        position: "fixed", inset: "0", zIndex: "2147483645", background: "transparent", cursor: "move",
+      });
+      nativeLayer.style.setProperty("-webkit-app-region", "drag");
+    }
+    if (!nativeLayer.isConnected) document.documentElement.append(nativeLayer);
+    nativeTimer = setTimeout(() => nativeDrag(false), NATIVE_TTL_MS);
+  }
+
+  document.addEventListener("mousemove", (e) => nativeDrag(e.shiftKey), true);
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Shift") nativeDrag(true);
+  }, true);
+  window.addEventListener("keyup", (e) => {
+    if (e.key === "Shift") nativeDrag(false);
+  }, true);
+  window.addEventListener("blur", () => nativeDrag(false));
 }
