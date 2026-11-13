@@ -342,6 +342,17 @@ function setAlwaysOnTop(v) {
 
 const toggleAlwaysOnTop = () => setAlwaysOnTop(!cfg.window.alwaysOnTop);
 
+/** "Limpiar chat": en modo plataformas se vacía (app, OBS e historial); SSN no se puede
+ *  vaciar desde fuera, así que se recarga (empieza vacío), también en OBS. */
+function clearChat() {
+  if (nativeChat()) {
+    sources.clearAll(); // llega a la app y a OBS como evento "clear-all"
+  } else {
+    chatWc()?.reload();
+    obs.broadcast("reload", true);
+  }
+}
+
 /** Activa o para el chat para OBS (desde el botón, el menú o Configuración). */
 async function setObsEnabled(v) {
   cfg.obs.enabled = !!v;
@@ -406,6 +417,7 @@ function contextMenu() {
       click: () => setClickThrough(!clickThrough),
     },
     { type: "separator" },
+    { label: "Limpiar chat", click: clearChat },
     { label: "Recargar chat", click: () => chatWc()?.reload() },
     { label: "Salir", click: quit },
   ]);

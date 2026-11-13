@@ -203,3 +203,16 @@ test("canales que se leen: con cuenta, el del usuario; sin cuenta, los escritos"
   assert.deepStrictEqual(sm.twitchChannels(src(true)), ["mygamedevvlog"]);
   assert.deepStrictEqual(sm.twitchChannels(src(true, "ssn")), [], "en modo SSN no se lee nada");
 });
+
+test("Limpiar chat: vacía el historial y avisa a las pantallas", () => {
+  const { SourceManager } = require("../src/sources");
+  const sm = new SourceManager();
+  const seen = [];
+  sm.on("event", (ev) => seen.push(ev.type));
+  sm.push({ type: "message", platform: "twitch", channel: "x", id: "1", user: { id: "u" }, parts: [] });
+  sm.push({ type: "status", platform: "twitch", channel: "x", state: "connected", text: "ok" });
+  sm.clearAll();
+  assert.deepStrictEqual(sm.snapshot().events, []);
+  assert.strictEqual(sm.snapshot().statuses.length, 1, "el estado de los canales se conserva");
+  assert.deepStrictEqual(seen, ["message", "status", "clear-all"]);
+});

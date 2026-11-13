@@ -416,6 +416,11 @@ function handle(ev) {
     case "clear-channel":
       matches(`.msg[data-platform="${cssEsc(ev.platform)}"][data-channel="${cssEsc(ev.channel)}"]`).forEach((n) => n.remove());
       break;
+    case "clear-all": // "Limpiar chat" del menú
+      list.textContent = "";
+      hoverPause = 0;
+      stick = true;
+      break;
     default:
       return;
   }

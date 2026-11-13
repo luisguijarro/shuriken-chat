@@ -34,3 +34,7 @@ es.addEventListener("layout", (e) => {
   apply();
 });
 addEventListener("resize", apply);
+// "Limpiar chat" en modo SSN: se recarga el dock (empieza vacío), igual que en la app.
+es.addEventListener("reload", () => {
+  if (frame.getAttribute("src")) frame.setAttribute("src", frame.getAttribute("src"));
+});
