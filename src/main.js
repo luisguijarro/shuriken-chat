@@ -34,6 +34,7 @@ let twitchAuth = null; // sesión de Twitch (se crea al arrancar: safeStorage ne
 let chatWin = null; // ventana: carga ui/frame.html (borde, fondo, esquinas)
 let chatView = null; // vista interior con SSN, desplazada según el margen
 let settingsWin = null;
+let webcamWin = null; // ventana de webcam (Configuración → Webcam)
 let tray = null;
 let currentUrl = null; // URL cargada en la ventana del chat
 let clickThrough = false; // no se guarda: así un reinicio siempre lo desactiva
@@ -114,6 +115,7 @@ function persistWindow() {
   try {
     const disk = config.load();
     disk.window = { ...cfg.window };
+    disk.webcamWindow = { ...cfg.webcamWindow };
     config.save(disk);
   } catch (e) {
     console.error("[shuriken] no se pudo guardar la configuración:", e);
@@ -136,6 +138,7 @@ function settingsView() {
 
 const chatWc = () => (chatView && !chatView.webContents.isDestroyed() ? chatView.webContents : null);
 const frameWc = () => (alive(chatWin) ? chatWin.webContents : null);
+const webcamWc = () => (alive(webcamWin) ? webcamWin.webContents : null);
 
 /** Sustituye el CSS que inyectamos en `wc` (sin recargar la página). */
 async function replaceCss(wc, css) {
@@ -173,9 +176,11 @@ function layoutChat() {
 function pushPageState() {
   frameWc()?.send("shuriken:state", pageState(frameWc()));
   chatWc()?.send("shuriken:state", pageState(chatWc()));
+  webcamWc()?.send("shuriken:state", pageState(webcamWc()));
 }
 
 function pageState(wc) {
+  if (wc && wc === webcamWc()) return { locked: cfg.webcamWindow.locked, edges: true, toolbar: null };
   const locked = cfg.window.locked;
   if (wc === frameWc()) return { locked, edges: true };
   return {
@@ -317,8 +322,10 @@ function applySettings(settings) {
   cfg.appearance = s.appearance;
   cfg.system = s.system;
   cfg.obs = { ...s.obs, key: cfg.obs.key }; // la clave no viene del formulario
+  cfg.webcam = s.webcam;
   sources.apply(cfg.sources);
   syncObsServer();
+  syncWebcamWindow();
   if (alive(chatWin)) {
     if (chatTarget() !== currentUrl) loadChat();
     else {
@@ -351,16 +358,17 @@ function setClickThrough(v) {
 
 /** "Siempre visible". En macOS, además, por encima de apps a pantalla completa y en
  *  todos los escritorios (si no, al poner un juego a pantalla completa desaparece). */
-function applyAlwaysOnTop() {
-  if (!alive(chatWin)) return;
-  const on = cfg.window.alwaysOnTop;
+function setOnTop(win, on) {
+  if (!alive(win)) return;
   if (process.platform === "darwin") {
-    chatWin.setAlwaysOnTop(on, "floating");
-    chatWin.setVisibleOnAllWorkspaces(on, { visibleOnFullScreen: true });
+    win.setAlwaysOnTop(on, "floating");
+    win.setVisibleOnAllWorkspaces(on, { visibleOnFullScreen: true });
   } else {
-    chatWin.setAlwaysOnTop(on);
+    win.setAlwaysOnTop(on);
   }
 }
+
+const applyAlwaysOnTop = () => setOnTop(chatWin, cfg.window.alwaysOnTop);
 
 function setAlwaysOnTop(v) {
   cfg.window.alwaysOnTop = !!v;
@@ -487,25 +495,29 @@ function buildTray() {
 
 let drag = null;
 
-function startDrag(dir) {
-  if (!alive(chatWin) || cfg.window.locked) return;
+/** Mover o redimensionar una ventana (la del chat o la de la webcam). */
+function startDrag(win, dir) {
+  const locked = win === webcamWin ? cfg.webcamWindow.locked : cfg.window.locked;
+  if (!alive(win) || locked) return;
   stopDrag();
   drag = {
+    win,
     dir,
     cursor: screen.getCursorScreenPoint(),
-    bounds: chatWin.getBounds(),
+    bounds: win.getBounds(),
     timer: setInterval(stepDrag, 16),
   };
 }
 
 function stepDrag() {
-  if (!drag || !alive(chatWin)) return stopDrag();
+  if (!drag || !alive(drag.win)) return stopDrag();
+  const win = drag.win;
   const p = screen.getCursorScreenPoint();
   const dx = p.x - drag.cursor.x;
   const dy = p.y - drag.cursor.y;
   const b = drag.bounds;
   if (!drag.dir) {
-    chatWin.setPosition(b.x + dx, b.y + dy);
+    win.setPosition(b.x + dx, b.y + dy);
     return;
   }
   let { x, y, width, height } = b;
@@ -520,7 +532,7 @@ function stepDrag() {
     height = Math.max(MIN_H, b.height - dy);
     y = b.y + b.height - height;
   }
-  chatWin.setBounds({ x, y, width, height });
+  win.setBounds({ x, y, width, height });
 }
 
 function stopDrag() {
@@ -699,6 +711,135 @@ function createChatWindow() {
 }
 
 // ---------------------------------------------------------------------------
+// Ventana de webcam (aparte del chat, con el mismo marco)
+// ---------------------------------------------------------------------------
+
+/** Abre o cierra la ventana según Configuración → Webcam, y le aplica los cambios. */
+function syncWebcamWindow() {
+  if (cfg.webcam.enabled && !alive(webcamWin)) createWebcamWindow();
+  else if (!cfg.webcam.enabled && alive(webcamWin)) webcamWin.close();
+  else if (alive(webcamWin)) applyWebcam();
+}
+
+/** Marco (mismo aspecto que el chat) y dispositivo/espejo elegidos. */
+function applyWebcam() {
+  const wc = webcamWc();
+  if (!wc) return;
+  replaceCss(wc, config.webcamCss(cfg.appearance));
+  const { deviceId, deviceLabel, mirror } = cfg.webcam;
+  wc.send("shuriken:webcam-config", { deviceId, deviceLabel, mirror });
+  wc.send("shuriken:state", pageState(wc));
+}
+
+/** Guarda solo la parte de la webcam que se cambia desde su menú (no lo que se previsualiza). */
+function persistWebcam(fields) {
+  try {
+    const disk = config.load();
+    Object.assign(disk.webcam, fields);
+    config.save(disk);
+  } catch (e) {
+    console.error("[shuriken] no se pudo guardar la webcam:", e);
+  }
+  if (alive(settingsWin)) settingsWin.webContents.send("shuriken:auth-changed"); // refrescar casillas
+}
+
+function setWebcamEnabled(on) {
+  cfg.webcam.enabled = !!on;
+  persistWebcam({ enabled: cfg.webcam.enabled });
+  syncWebcamWindow();
+}
+
+function webcamMenu() {
+  const w = cfg.webcamWindow;
+  return Menu.buildFromTemplate([
+    { label: "Configuración…", click: openSettings },
+    { type: "separator" },
+    {
+      label: "Siempre visible", type: "checkbox", checked: w.alwaysOnTop,
+      click: () => {
+        w.alwaysOnTop = !w.alwaysOnTop;
+        setOnTop(webcamWin, w.alwaysOnTop);
+        persistWindow();
+      },
+    },
+    {
+      label: "Bloquear posición y tamaño", type: "checkbox", checked: w.locked,
+      click: () => {
+        w.locked = !w.locked;
+        pushPageState();
+        persistWindow();
+      },
+    },
+    {
+      label: "Voltear horizontalmente (espejo)", type: "checkbox", checked: cfg.webcam.mirror,
+      click: () => {
+        cfg.webcam.mirror = !cfg.webcam.mirror;
+        persistWebcam({ mirror: cfg.webcam.mirror });
+        applyWebcam();
+      },
+    },
+    { type: "separator" },
+    { label: "Ocultar la webcam", click: () => setWebcamEnabled(false) },
+    { label: "Salir", click: quit },
+  ]);
+}
+
+function createWebcamWindow() {
+  const w = cfg.webcamWindow;
+  const bounds = { width: Math.max(MIN_W, w.width), height: Math.max(MIN_H, w.height) };
+  if (w.x !== null && w.y !== null) {
+    const visible = screen.getAllDisplays().some(({ workArea: a }) =>
+      w.x < a.x + a.width && w.x + bounds.width > a.x && w.y < a.y + a.height && w.y + bounds.height > a.y);
+    if (visible) Object.assign(bounds, { x: w.x, y: w.y });
+  }
+  webcamWin = new BrowserWindow({
+    ...bounds,
+    minWidth: MIN_W,
+    minHeight: MIN_H,
+    title: "Shuriken Chat · Webcam",
+    icon: path.join(ICONS, "icon.png"),
+    frame: false,
+    transparent: true,
+    backgroundColor: "#00000000",
+    hasShadow: false,
+    resizable: true,
+    alwaysOnTop: w.alwaysOnTop,
+    webPreferences: {
+      preload: path.join(__dirname, "preload-chat.js"),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+    },
+  });
+  webcamWin.on("page-title-updated", (e) => e.preventDefault());
+  const wc = webcamWin.webContents;
+  wc.on("dom-ready", () => {
+    cssKeys.delete(wc);
+    applyWebcam();
+  });
+  const track = () => {
+    if (!alive(webcamWin) || webcamWin.isMinimized()) return;
+    const b = webcamWin.getBounds();
+    Object.assign(cfg.webcamWindow, { x: b.x, y: b.y, width: b.width, height: b.height });
+    if (!drag) persistWindowSoon();
+  };
+  webcamWin.on("move", track);
+  webcamWin.on("resize", () => {
+    track();
+    const [cw, ch] = webcamWin.getContentSize();
+    wc.send("shuriken:size", { width: cw, height: ch });
+  });
+  webcamWin.on("blur", stopDrag);
+  webcamWin.on("close", persistWindow);
+  webcamWin.on("closed", () => {
+    webcamWin = null;
+  });
+  setOnTop(webcamWin, w.alwaysOnTop);
+  webcamWin.loadFile(path.join(UI, "webcam.html"));
+}
+
+// ---------------------------------------------------------------------------
 // Seguridad: el chat nunca usa cámara, micrófono ni pantalla
 // ---------------------------------------------------------------------------
 
@@ -706,8 +847,21 @@ function lockDownPermissions() {
   const ALLOWED = new Set(["clipboard-sanitized-write"]);
   const DENIED_CHECKS = new Set(["media", "display-capture", "geolocation", "notifications"]);
   const ses = session.defaultSession;
-  ses.setPermissionRequestHandler((_wc, permission, callback) => callback(ALLOWED.has(permission)));
-  ses.setPermissionCheckHandler((_wc, permission) => !DENIED_CHECKS.has(permission));
+  ses.setPermissionRequestHandler((wc, permission, callback, details) => {
+    // Única excepción: la ventana de webcam puede abrir VÍDEO (nunca el micrófono).
+    if (permission === "media" && wc && wc === webcamWc()) {
+      const types = (details && details.mediaTypes) || [];
+      return callback(types.length > 0 && types.every((t) => t === "video"));
+    }
+    callback(ALLOWED.has(permission));
+  });
+  ses.setPermissionCheckHandler((wc, permission) => {
+    // La ventana de webcam y Configuración (para listar las cámaras con su nombre).
+    if (permission === "media" && wc && (wc === webcamWc() || (alive(settingsWin) && wc === settingsWin.webContents))) {
+      return true;
+    }
+    return !DENIED_CHECKS.has(permission);
+  });
   ses.setDevicePermissionHandler(() => false);
 }
 
@@ -717,14 +871,18 @@ function lockDownPermissions() {
 
 function registerIpc() {
   // El marco o la vista del chat (la web de SSN solo llega hasta aquí).
-  const fromChat = (e) => !!e.sender && (e.sender === frameWc() || e.sender === chatWc());
+  // El marco, la vista del chat o la ventana de webcam (la web de SSN solo llega hasta aquí).
+  const fromChat = (e) => !!e.sender && [frameWc(), chatWc(), webcamWc()].includes(e.sender);
+  const winOf = (e) => (e.sender === webcamWc() ? webcamWin : chatWin);
   const fromSettings = (e) => alive(settingsWin) && e.sender === settingsWin.webContents;
 
   ipcMain.on("shuriken:menu", (e) => {
-    if (fromChat(e)) contextMenu().popup({ window: chatWin });
+    if (!fromChat(e)) return;
+    if (e.sender === webcamWc()) webcamMenu().popup({ window: webcamWin });
+    else contextMenu().popup({ window: chatWin });
   });
   ipcMain.on("shuriken:drag-start", (e, dir) => {
-    if (fromChat(e) && e.senderFrame === e.sender.mainFrame) startDrag(DIRS.has(dir) ? dir : null);
+    if (fromChat(e) && e.senderFrame === e.sender.mainFrame) startDrag(winOf(e), DIRS.has(dir) ? dir : null);
   });
   ipcMain.on("shuriken:drag-end", (e) => {
     if (fromChat(e)) stopDrag();
@@ -800,7 +958,7 @@ function registerIpc() {
   // ---- OBS ----
   settingsCmd("obs_info", () => obsInfo());
   // Opciones de la ventana que se aplican al momento (como el menú y los botones del chat).
-  settingsCmd("window_state", () => ({ alwaysOnTop: cfg.window.alwaysOnTop }));
+  settingsCmd("window_state", () => ({ alwaysOnTop: cfg.window.alwaysOnTop, webcamEnabled: cfg.webcam.enabled }));
   settingsCmd("set_always_on_top", ({ value }) => {
     setAlwaysOnTop(value);
     return { alwaysOnTop: cfg.window.alwaysOnTop };
@@ -898,6 +1056,7 @@ function start() {
   });
   sources.apply(cfg.sources);
   createChatWindow();
+  syncWebcamWindow();
   buildTray();
   // Primera vez (o sin nada que mostrar): abrir Configuración.
   const nothing = cfg.sources.mode === "native" ? !sources.allChannels(cfg.sources).length : !cfg.appearance.session.trim();

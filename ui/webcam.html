@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream:" />
+  <title>Shuriken Chat · Webcam</title>
+  <!-- Ventana de webcam: el mismo marco que el chat (.frame, estilo inyectado por la app
+       con config.webcamCss) y el vídeo dentro, con el mismo margen y esquinas. -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; user-select: none; }
+    .frame { position: fixed; inset: 0; box-sizing: border-box; }
+    /* #view y #msg: colocados por la app (margen y esquinas, config.webcamCss). */
+    #view, #msg { position: fixed; inset: 0; overflow: hidden; }
+    #video { display: block; width: 100%; height: 100%; object-fit: cover; background: transparent; }
+    #video.mirror { transform: scaleX(-1); }
+    #msg {
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      padding: 12px; box-sizing: border-box;
+      color: #eee; font: 500 13px/1.45 system-ui, sans-serif; background: rgba(18, 18, 24, 0.82);
+    }
+    #msg[hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div id="view"><video id="video" autoplay muted playsinline></video></div>
+  <div id="msg">Conectando con la cámara…</div>
+  <script src="webcam.js"></script>
+</body>
+</html>

@@ -128,6 +128,23 @@
     </section>
 
     <section>
+      <h2>Webcam</h2>
+      <p class="muted">Una ventana aparte con tu webcam, con el mismo borde y esquinas que el chat (sin margen). Se mueve, se redimensiona y tiene su propio menú con el clic derecho.</p>
+      <div class="checks">
+        <label><input id="webcamEnabled" type="checkbox" /> Mostrar la ventana de webcam</label>
+        <label><input id="webcamMirror" type="checkbox" /> Voltear horizontalmente (espejo)</label>
+      </div>
+      <label class="field">
+        <span>Cámara</span>
+        <div class="row">
+          <select id="webcamDevice"></select>
+          <button id="webcamRefresh" type="button" class="ghost" title="Actualizar la lista">↻</button>
+        </div>
+      </label>
+      <p class="muted">¿Usas la webcam en OBS? En muchos sistemas una cámara solo la puede usar una aplicación a la vez. Usa la <b>cámara virtual de OBS</b>: en OBS, <i>Cámara virtual → ⚙ Configurar → Tipo de salida: Fuente</i>, elige tu webcam (con sus filtros) y pulsa <i>Iniciar cámara virtual</i>. Después elige aquí <b>OBS Virtual Camera</b>.</p>
+    </section>
+
+    <section>
       <h2>OBS</h2>
       <p class="muted">Añade en OBS una <b>Fuente de navegador</b> con esta URL: se verá exactamente igual que esta ventana, aunque la escena no muestre el escritorio.</p>
       <div class="checks">

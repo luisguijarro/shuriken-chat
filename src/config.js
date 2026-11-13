@@ -91,6 +91,23 @@ function normalizeObs(raw) {
   return o;
 }
 
+/** Ventana de webcam (aparte del chat, con el mismo marco). */
+const DEFAULT_WEBCAM = {
+  enabled: false,
+  deviceId: "",
+  deviceLabel: "", // para reconocer el dispositivo si cambia su id
+  mirror: true, // voltear horizontalmente, como en las videollamadas
+};
+
+const DEFAULT_WEBCAM_WINDOW = {
+  x: null,
+  y: null,
+  width: 360,
+  height: 270,
+  alwaysOnTop: true,
+  locked: false,
+};
+
 /** Estado de la ventana, gestionado desde el menú contextual. */
 const DEFAULT_WINDOW = {
   x: null,
@@ -137,7 +154,9 @@ function normalize(raw) {
     appearance,
     system: withDefaults(DEFAULT_SYSTEM, c.system),
     obs: normalizeObs(c.obs),
+    webcam: withDefaults(DEFAULT_WEBCAM, c.webcam),
     window: withDefaults(DEFAULT_WINDOW, c.window),
+    webcamWindow: withDefaults(DEFAULT_WEBCAM_WINDOW, c.webcamWindow),
   };
 }
 
@@ -166,6 +185,7 @@ function userSettings(config) {
     appearance: { ...config.appearance },
     system: { ...config.system },
     obs: { enabled: config.obs.enabled, port: config.obs.port }, // la clave no se edita en el formulario
+    webcam: { ...config.webcam },
   };
 }
 
@@ -244,6 +264,15 @@ function frameCss(appearance, opacityTarget = "html") {
   return `.frame{border:${bd};border-radius:${radius}px;background:${bg};}\n` + opacityCss(a).replace(/^html\{/, opacityTarget + "{");
 }
 
+/** CSS de la ventana de webcam: el mismo borde y esquinas que el chat, pero SIN margen
+ *  (decisión del usuario): el vídeo llega hasta el borde, con esquinas concéntricas. */
+function webcamCss(appearance) {
+  const { inset, innerRadius } = frameLayout({ ...withDefaults(DEFAULT_APPEARANCE, appearance), margin: 0 });
+  return frameCss(appearance) +
+    // !important: la página tiene "inset: 0" de base y, a igual especificidad, ganaba.
+    `#view,#msg{left:${inset}px!important;top:${inset}px!important;right:${inset}px!important;bottom:${inset}px!important;border-radius:${innerRadius}px;}\n`;
+}
+
 /** CSS que inyectamos en la página del chat. */
 function pageCss(appearance) {
   const a = withDefaults(DEFAULT_APPEARANCE, appearance);
@@ -271,4 +300,5 @@ module.exports = {
   pageCss,
   frameCss,
   frameLayout,
+  webcamCss,
 };
