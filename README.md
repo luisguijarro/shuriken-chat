@@ -60,9 +60,11 @@ Shuriken Chat muestra el chat de tus directos **en tu escritorio**, para leerlo 
 
 ### Paquetes nativos
 
-- **Debian / Ubuntu / Mint:** `sudo apt install ./shuriken-chat_x.y.z_amd64.deb`
-- **Fedora / openSUSE:** `sudo dnf install ./shuriken-chat-x.y.z-1.x86_64.rpm`
-- **Arch / CachyOS / Manjaro:** usa el AppImage o [ejecútalo desde el código](#ejecutar-desde-el-código).
+Descárgalos desde *Releases*. Se instalan en el menú de aplicaciones como cualquier otra app.
+
+- **Arch / CachyOS / Manjaro / EndeavourOS:** `sudo pacman -U ./shuriken-chat-x.y.z-x86_64.pacman`
+- **Debian / Ubuntu / Mint / Pop!_OS:** `sudo apt install ./shuriken-chat-x.y.z-amd64.deb`
+- **Fedora / openSUSE:** `sudo dnf install ./shuriken-chat-x.y.z-x86_64.rpm` (en openSUSE, `sudo zypper install …`)
 
 ## Primeros pasos
 
@@ -210,11 +212,11 @@ npm install
 npm start                 # ejecutar
 SHURIKEN_DEBUG=1 npm start  # con la consola de la página en la terminal
 npm test                  # tests de la generación de URL
-npm run build             # AppImage, .deb y .rpm en dist/
-npm run build:appimage    # solo AppImage
+npm run build             # AppImage, .deb, .rpm y pacman en dist/
+npm run build:appimage    # solo AppImage (también build:deb, build:rpm, build:pacman)
 ```
 
-> El `.rpm` necesita `rpmbuild` instalado (`rpm-tools` en Arch).
+> El `.rpm` necesita `rpmbuild` instalado (`sudo pacman -S rpm-tools` en Arch). El resto no necesita nada más.
 
 ## Cómo funciona
 

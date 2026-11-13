@@ -12,7 +12,10 @@
     "test": "node --test test/",
     "build": "electron-builder --linux",
     "build:appimage": "electron-builder --linux AppImage",
-    "build:win": "electron-builder --win"
+    "build:win": "electron-builder --win",
+    "build:deb": "electron-builder --linux deb",
+    "build:rpm": "electron-builder --linux rpm",
+    "build:pacman": "electron-builder --linux pacman"
   },
   "devDependencies": {
     "electron": "^45.3.0",
@@ -67,7 +70,8 @@
         "libnotify",
         "libsecret",
         "xdg-utils"
-      ]
+      ],
+      "artifactName": "shuriken-chat-${version}-x86_64.pacman"
     },
     "deb": {
       "depends": [

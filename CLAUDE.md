@@ -17,6 +17,16 @@ Todo se muestra en una ventana **sin bordes, transparente, redimensionable, arra
 - **Una rama por plataforma o feature**, con su nombre (`twitch`, `kick`, `youtube`, `obs`…), y **una release por cada una**. Versiones: 0.2.0 = solo SSN, 0.3.0 = Twitch, 0.4.0 = Kick, 0.5.0 = YouTube (publicadas), 0.6.0 = OBS.
 - Tras terminar una plataforma: tests, prueba en vivo, commit en su rama, push y AppImage (`npm run build:appimage`). Fusionar en master y publicar la release solo cuando el usuario lo confirme.
 - El remoto `origin` es un Gitea/Forgejo propio (git.dark-pi.net).
+- **Releases**: adjuntar AppImage, `.deb`, `.rpm` y `.pacman` + `SHA256SUMS.txt` (`fj release create --tag vX --attach …`).
+
+## Empaquetado
+
+- electron-builder: `linux.target` = AppImage, deb, rpm, pacman (`npm run build`, o `build:<formato>`). `.rpm` necesita `rpmbuild` (`rpm-tools` en Arch); el resto, nada.
+- **Dependencias explícitas y mínimas** por formato (`build.deb/rpm/pacman.depends`): Electron ya lleva casi todo. Sin libappindicator: `libappindicator-gtk3` **no existe en Arch** (la lista por defecto de electron-builder hacía el .pacman ininstalable) y la bandeja la gestiona Electron por D-Bus.
+- El comentario del lanzador `.desktop` sale de `linux.description` (electron-builder ignora `desktop.entry.Comment`): mantenerla corta. Sección del .deb con `deb.packageCategory`.
+- Responsable de los paquetes: solo el nombre "Shuriken Chat", sin correo (decisión del usuario).
+- Comprobar sin instalar: `pacman -Qip dist/*.pacman`, `bsdtar -xOf <paquete> usr/share/applications/shuriken-chat.desktop | desktop-file-validate`, y el control del .deb con `bsdtar`.
+- **Flathub/Flatpak: aparcado** por decisión del usuario. Cuando se retome: el repo de git.dark-pi.net es **privado** (Flathub necesita fuentes públicas) → el usuario eligió un **espejo en GitHub**; falta decidir el App ID (`io.github.<usuario>.ShurikenChat` o `net.dark_pi.ShurikenChat` verificando el dominio), metainfo AppStream, capturas, y manifiesto con `org.electronjs.Electron2.BaseApp` + `flatpak-node-generator`.
 
 ## Stack y por qué
 
