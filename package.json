@@ -1,18 +1,21 @@
 {
   "name": "shuriken-chat",
   "productName": "Shuriken Chat",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
-  "description": "Visor de escritorio sin bordes para el chat unificado de Social Stream Ninja",
+  "description": "Chat de Twitch, Kick y YouTube flotando en tu escritorio y en OBS",
   "author": "Shuriken Chat",
   "license": "MIT",
   "main": "src/main.js",
   "scripts": {
     "start": "node scripts/start.js",
     "test": "node --test test/",
-    "build": "electron-builder --linux",
-    "build:appimage": "electron-builder --linux AppImage",
-    "build:win": "electron-builder --win"
+    "build": "node scripts/build.js",
+    "build:appimage": "node scripts/build.js appimage",
+    "build:win": "electron-builder --win",
+    "build:deb": "node scripts/build.js deb",
+    "build:rpm": "node scripts/build.js rpm",
+    "build:pacman": "node scripts/build.js pacman"
   },
   "devDependencies": {
     "electron": "^45.3.0",
@@ -34,14 +37,22 @@
       "target": [
         "AppImage",
         "deb",
-        "rpm"
+        "rpm",
+        "pacman"
       ],
-      "category": "Utility",
+      "category": "Network;Chat",
       "icon": "assets/icons/icon.png",
       "executableName": "shuriken-chat",
-      "synopsis": "Chat de Social Stream Ninja flotando en tu escritorio",
+      "synopsis": "Chat de Twitch, Kick y YouTube flotando en tu escritorio y en OBS",
       "maintainer": "Shuriken Chat",
-      "syncDesktopName": true
+      "syncDesktopName": true,
+      "description": "Chat de Twitch, Kick y YouTube en una ventana transparente y en OBS",
+      "desktop": {
+        "entry": {
+          "Keywords": "chat;twitch;kick;youtube;stream;obs;overlay;",
+          "StartupWMClass": "shuriken-chat"
+        }
+      }
     },
     "win": {
       "target": [
@@ -49,10 +60,51 @@
       ],
       "icon": "assets/icons/icon.ico"
     },
-    "artifactName": "shuriken-chat-${version}-${arch}.${ext}"
+    "artifactName": "shuriken-chat-${version}-${arch}.${ext}",
+    "pacman": {
+      "depends": [
+        "gtk3",
+        "nss",
+        "alsa-lib",
+        "libxss",
+        "libnotify",
+        "libsecret",
+        "xdg-utils"
+      ],
+      "artifactName": "shuriken-chat-${version}-x86_64.pacman"
+    },
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0",
+        "libasound2 | libasound2t64"
+      ],
+      "recommends": [],
+      "packageCategory": "net"
+    },
+    "rpm": {
+      "depends": [
+        "gtk3",
+        "nss",
+        "alsa-lib",
+        "libXScrnSaver",
+        "libnotify",
+        "libsecret",
+        "xdg-utils"
+      ],
+      "packageCategory": "Applications/Internet"
+    }
   },
   "allowScripts": {
     "electron-winstaller": false
   },
-  "desktopName": "shuriken-chat.desktop"
+  "desktopName": "shuriken-chat.desktop",
+  "homepage": "https://git.dark-pi.net/public/shuriken-chat"
 }

@@ -14,9 +14,19 @@ Todo se muestra en una ventana **sin bordes, transparente, redimensionable, arra
 
 ## Ramas y releases
 
-- **Una rama por plataforma o feature**, con su nombre (`twitch`, `kick`, `youtube`, `obs`…), y **una release por cada una**. Versiones: 0.2.0 = solo SSN, 0.3.0 = Twitch, 0.4.0 = Kick, 0.5.0 = YouTube (publicadas), 0.6.0 = OBS.
+- **Una rama por plataforma o feature**, con su nombre (`twitch`, `kick`, `youtube`, `obs`…), y **una release por cada una**. Versiones: 0.2.0 = solo SSN, 0.3.0 = Twitch, 0.4.0 = Kick, 0.5.0 = YouTube, 0.6.0 = OBS (publicadas), 0.6.1 = paquetes .deb/.rpm/.pacman.
 - Tras terminar una plataforma: tests, prueba en vivo, commit en su rama, push y AppImage (`npm run build:appimage`). Fusionar en master y publicar la release solo cuando el usuario lo confirme.
 - El remoto `origin` es un Gitea/Forgejo propio (git.dark-pi.net).
+- **Releases**: adjuntar AppImage, `.deb`, `.rpm` y `.pacman` + `SHA256SUMS.txt` (`fj release create --tag vX --attach …`).
+
+## Empaquetado
+
+- **Un solo comando: `npm run build`** (`scripts/build.js`): quita `ELECTRON_RUN_AS_NODE`, limpia `dist/`, lanza electron-builder (`linux.target` = AppImage, deb, rpm, pacman), genera `dist/SHA256SUMS.txt` y muestra un resumen. Formatos sueltos: `npm run build -- deb pacman` (o `build:<formato>`). Si falta `rpmbuild` (`rpm-tools` en Arch), salta el .rpm avisando. Ya no hace falta `env -u ELECTRON_RUN_AS_NODE` para construir.
+- **Dependencias explícitas y mínimas** por formato (`build.deb/rpm/pacman.depends`): Electron ya lleva casi todo. Sin libappindicator: `libappindicator-gtk3` **no existe en Arch** (la lista por defecto de electron-builder hacía el .pacman ininstalable) y la bandeja la gestiona Electron por D-Bus.
+- El comentario del lanzador `.desktop` sale de `linux.description` (electron-builder ignora `desktop.entry.Comment`): mantenerla corta. Sección del .deb con `deb.packageCategory` (`net`) y grupo del .rpm con `rpm.packageCategory` (`Applications/Internet`). Para revisar el .rpm: `rpm -qip`, `rpm -qpR` y `rpm2cpio <rpm> | bsdtar -xf -` (bsdtar no abre el .rpm directamente).
+- Responsable de los paquetes: solo el nombre "Shuriken Chat", sin correo (decisión del usuario).
+- Comprobar sin instalar: `pacman -Qip dist/*.pacman`, `bsdtar -xOf <paquete> usr/share/applications/shuriken-chat.desktop | desktop-file-validate`, y el control del .deb con `bsdtar`.
+- **Flathub/Flatpak: aparcado** por decisión del usuario. Cuando se retome: el repo de git.dark-pi.net es **privado** (Flathub necesita fuentes públicas) → el usuario eligió un **espejo en GitHub**; falta decidir el App ID (`io.github.<usuario>.ShurikenChat` o `net.dark_pi.ShurikenChat` verificando el dominio), metainfo AppStream, capturas, y manifiesto con `org.electronjs.Electron2.BaseApp` + `flatpak-node-generator`.
 
 ## Stack y por qué
 
@@ -153,13 +163,16 @@ npm install
 npm start                     # ejecutar (relanza en X11 si hay Wayland)
 SHURIKEN_DEBUG=1 npm start    # consola de la página + diagnóstico (webrtc, dispositivos, cámara)
 npm test                      # tests de config
-npm run build                 # AppImage + deb + rpm en dist/ (rpm necesita rpmbuild)
-npm run build:appimage        # solo AppImage (~125 MB)
+npm run build                 # AppImage + deb + rpm + pacman en dist/ + SHA256SUMS.txt
+npm run build -- appimage     # solo AppImage (o deb, rpm, pacman)
 ```
 
 Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm start`.
 
 ## Estado actual
+
+- 🚧 Rama `packaging` (v0.6.1): AppImage + .deb + .rpm + .pacman. Revisados por dentro los cuatro; el .pacman instalado y probado por el usuario (arranca). Pendiente: PR y release con los cuatro paquetes. Flathub aparcado (ver "Empaquetado").
+- ✅ v0.6.0 (OBS) fusionada y publicada.
 
 - 🚧 Rama `obs` (v0.6.0): chat para OBS idéntico a la app. Probado: app y vista de OBS lado a lado (mismos mensajes, maquetación, marco y zoom, escalado ×1,48), modo SSN (URL con b64css), sección OBS en Configuración. Pendiente: que el usuario lo pruebe en OBS de verdad, PR y release.
 - ✅ v0.5.0 (YouTube) fusionada y publicada.
