@@ -62,6 +62,36 @@ document.addEventListener("contextmenu", (e) => {
 }, true);
 
 // ---------- 3. Mover y redimensionar (solo el frame principal) ----------
+// ---------- 4. Medidas al redimensionar (solo el frame principal) ----------
+// Etiqueta centrada con el tamaño de la ventana que desaparece al dejar de redimensionar.
+// Estilos en línea (CSSOM): funcionan también en páginas con CSP estricta, como SSN.
+if (window.top === window) {
+  let label = null;
+  let hideTimer = null;
+  ipcRenderer.on("shuriken:size", (_e, { width, height }) => {
+    if (!document.documentElement) return;
+    if (!label) {
+      label = document.createElement("div");
+      label.id = "shuriken-size";
+      Object.assign(label.style, {
+        position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)",
+        zIndex: "2147483647", pointerEvents: "none", padding: "6px 12px", borderRadius: "8px",
+        background: "rgba(10, 10, 14, 0.85)", color: "#fff", font: "700 15px/1.2 system-ui, sans-serif",
+        fontVariantNumeric: "tabular-nums", boxShadow: "0 2px 10px rgba(0,0,0,.5)",
+        transition: "opacity .25s", whiteSpace: "nowrap",
+      });
+    }
+    label.textContent = `${width} × ${height}`;
+    label.style.opacity = "1";
+    if (!label.isConnected) document.documentElement.append(label);
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      label.style.opacity = "0";
+      hideTimer = setTimeout(() => label.remove(), 300);
+    }, 1000);
+  });
+}
+
 if (window.top === window) {
   const EDGE = 6; // píxeles sensibles al borde para redimensionar
   const CURSORS = {

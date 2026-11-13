@@ -141,26 +141,51 @@ test("AutoMod: fragmentos a partes (emotes de Twitch, de terceros y texto)", () 
   assert.deepStrictEqual(fragmentsToParts({ text: "solo texto", fragments: [] }), [{ type: "text", text: "solo texto" }]);
 });
 
-test("sesión de Twitch: se guarda cifrada y se recupera; sin llavero, en claro con permisos 600", () => {
+test("sesión de Twitch: se guarda cifrada y se recupera; sin llavero, en claro con permisos 600", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "shuriken-auth-"));
+  const xor = (buf) => Buffer.from([...buf].map((b) => b ^ 0x5a));
   const fake = {
-    isEncryptionAvailable: () => true,
-    encryptString: (s) => Buffer.from([...Buffer.from(s)].map((b) => b ^ 0x5a)),
-    decryptString: (b) => Buffer.from([...b].map((x) => x ^ 0x5a)).toString(),
+    isAsyncEncryptionAvailable: async () => true,
+    encryptStringAsync: async (s) => xor(Buffer.from(s)),
+    decryptStringAsync: async (b) => ({ result: xor(b).toString(), shouldReEncrypt: false }),
   };
   const a = new TwitchAuth(dir, fake);
+  await a.ready;
   a.session = { clientId: "c", accessToken: "SECRETO", refreshToken: "r", expiresAt: 1, userId: "1", login: "yo" };
-  a.save();
+  await a.save();
   const raw = fs.readFileSync(path.join(dir, "twitch-auth.json"), "utf8");
   assert.ok(!raw.includes("SECRETO"), "el token no debe quedar en claro");
-  assert.strictEqual(new TwitchAuth(dir, fake).status().login, "yo");
+  const b = new TwitchAuth(dir, fake);
+  let changed = null;
+  b.on("change", (st) => (changed = st));
+  await b.ready;
+  assert.strictEqual(b.status().login, "yo");
+  assert.strictEqual(changed && changed.login, "yo", "al cargar la sesión se avisa con 'change'");
 
-  const plain = new TwitchAuth(dir, { isEncryptionAvailable: () => false });
+  // Migración: un fichero cifrado con el método antiguo (síncrono) se lee una vez y se re-cifra.
+  const legacy = {
+    ...fake,
+    decryptStringAsync: async (b) => {
+      if (b[0] === 0x4c) throw new Error("formato antiguo");
+      return fake.decryptStringAsync(b);
+    },
+    decryptString: (b) => b.subarray(1).toString(),
+  };
+  fs.writeFileSync(path.join(dir, "twitch-auth.json"), JSON.stringify({ encrypted: true, data: Buffer.concat([Buffer.from("L"), Buffer.from(JSON.stringify({ accessToken: "t", login: "viejo" }))]).toString("base64") }));
+  const m = new TwitchAuth(dir, legacy);
+  await m.ready;
+  await m.saving;
+  assert.strictEqual(m.status().login, "viejo");
+  const migrated = JSON.parse(fs.readFileSync(path.join(dir, "twitch-auth.json"), "utf8"));
+  assert.strictEqual((await fake.decryptStringAsync(Buffer.from(migrated.data, "base64"))).result.includes("viejo"), true, "re-cifrado con el método nuevo");
+
+  const plain = new TwitchAuth(dir, { isAsyncEncryptionAvailable: async () => false });
+  await plain.ready;
   plain.session = a.session;
-  plain.save();
+  await plain.save();
   assert.strictEqual(fs.statSync(path.join(dir, "twitch-auth.json")).mode & 0o777, 0o600);
   plain.session = null;
-  plain.save();
+  await plain.save();
   assert.ok(!fs.existsSync(path.join(dir, "twitch-auth.json")), "cerrar sesión borra el fichero");
   fs.rmSync(dir, { recursive: true, force: true });
 });

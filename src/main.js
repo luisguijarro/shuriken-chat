@@ -613,6 +613,9 @@ function createChatWindow() {
   chatWin.on("resize", () => {
     layoutChat();
     track();
+    // Medidas de la ventana mientras se redimensiona (las mismas que usa la tabla de OBS).
+    const [w, h] = chatWin.getContentSize();
+    chatWc()?.send("shuriken:size", { width: w, height: h });
   });
   chatWin.on("blur", stopDrag);
   chatWin.on("close", persistWindow);

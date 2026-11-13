@@ -41,7 +41,12 @@ class TwitchAuth extends EventEmitter {
     this.session = null; // { clientId, accessToken, refreshToken, expiresAt, userId, login, scopes }
     this.pending = null; // inicio de sesión en curso
     this.refreshing = null;
-    this.load();
+    this.saving = Promise.resolve();
+    // El descifrado es asíncrono: `ready` se resuelve al cargar la sesión guardada
+    // (y entonces se avisa con "change" para que se conecte lo que dependa de ella).
+    this.ready = this.load().then(() => {
+      if (this.loggedIn) this.emit("change", this.status());
+    });
   }
 
   get loggedIn() {
@@ -56,34 +61,54 @@ class TwitchAuth extends EventEmitter {
 
   // ---------- Almacenamiento ----------
 
-  load() {
+  async load() {
     try {
-      const raw = JSON.parse(fs.readFileSync(this.file, "utf8"));
-      const json = raw.encrypted
-        ? this.safeStorage.decryptString(Buffer.from(raw.data, "base64"))
-        : raw.data;
+      const raw = JSON.parse(await fs.promises.readFile(this.file, "utf8"));
+      let json = raw.data;
+      let reEncrypt = false;
+      if (raw.encrypted) {
+        const buf = Buffer.from(raw.data, "base64");
+        try {
+          const d = await this.safeStorage.decryptStringAsync(buf);
+          json = d.result;
+          reEncrypt = !!d.shouldReEncrypt; // la clave del llavero ha cambiado
+        } catch (e) {
+          // Migración: lo guardado con el antiguo encryptString (síncrono) NO lo descifra
+          // decryptStringAsync (comprobado con kwallet6, aunque la documentación diga lo
+          // contrario). Se lee una vez con el método antiguo y se vuelve a cifrar con el nuevo.
+          if (typeof this.safeStorage.decryptString !== "function") throw e;
+          json = this.safeStorage.decryptString(buf);
+          reEncrypt = true;
+        }
+      }
       this.session = JSON.parse(json);
+      if (reEncrypt) await this.save();
     } catch {
       this.session = null;
     }
   }
 
+  /** Guarda (o borra) la sesión. Las escrituras van en fila para no pisarse. */
   save() {
-    try {
-      if (!this.session) {
-        fs.rmSync(this.file, { force: true });
-        return;
+    const session = this.session;
+    this.saving = this.saving.then(async () => {
+      try {
+        if (!session) {
+          await fs.promises.rm(this.file, { force: true });
+          return;
+        }
+        const json = JSON.stringify(session);
+        const canEncrypt = !!(this.safeStorage && (await this.safeStorage.isAsyncEncryptionAvailable()));
+        const out = canEncrypt
+          ? { encrypted: true, data: (await this.safeStorage.encryptStringAsync(json)).toString("base64") }
+          : { encrypted: false, data: json };
+        await fs.promises.mkdir(path.dirname(this.file), { recursive: true });
+        await fs.promises.writeFile(this.file, JSON.stringify(out), { mode: 0o600 });
+      } catch (e) {
+        console.warn("[shuriken] no se pudo guardar la sesión de Twitch:", e.message);
       }
-      const json = JSON.stringify(this.session);
-      const canEncrypt = !!(this.safeStorage && this.safeStorage.isEncryptionAvailable());
-      const out = canEncrypt
-        ? { encrypted: true, data: this.safeStorage.encryptString(json).toString("base64") }
-        : { encrypted: false, data: json };
-      fs.mkdirSync(path.dirname(this.file), { recursive: true });
-      fs.writeFileSync(this.file, JSON.stringify(out), { mode: 0o600 });
-    } catch (e) {
-      console.warn("[shuriken] no se pudo guardar la sesión de Twitch:", e.message);
-    }
+    });
+    return this.saving;
   }
 
   // ---------- Inicio de sesión (código de dispositivo) ----------
@@ -148,7 +173,7 @@ class TwitchAuth extends EventEmitter {
       login: v.login,
       scopes: v.scopes || [],
     };
-    this.save();
+    await this.save();
     this.emit("change", this.status());
   }
 
@@ -183,7 +208,7 @@ class TwitchAuth extends EventEmitter {
         if (!r.ok) {
           // Sesión caducada (más de 30 días sin uso) o revocada: hay que volver a entrar.
           this.session = null;
-          this.save();
+          await this.save();
           this.emit("change", this.status());
           throw new Error("La sesión de Twitch ha caducado. Vuelve a iniciar sesión.");
         }
@@ -192,7 +217,7 @@ class TwitchAuth extends EventEmitter {
           refreshToken: r.data.refresh_token || s.refreshToken,
           expiresAt: Date.now() + (r.data.expires_in || 3600) * 1000,
         });
-        this.save();
+        await this.save();
       })().finally(() => {
         this.refreshing = null;
       });
@@ -227,7 +252,7 @@ class TwitchAuth extends EventEmitter {
     this.cancelLogin();
     const s = this.session;
     this.session = null;
-    this.save();
+    await this.save();
     this.emit("change", this.status());
     if (s) {
       // Revoca el token en Twitch (si falla, igualmente ya no lo guardamos).
