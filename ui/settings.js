@@ -196,6 +196,42 @@ function setMode(mode) {
   document.body.classList.toggle("mode-ssn", mode === "ssn");
 }
 
+// ---------- Webcam ----------
+
+let webcamSaved = { deviceId: "", deviceLabel: "" };
+
+/** Lista de cámaras (con su nombre: la app da permiso a esta ventana solo para listarlas). */
+async function listWebcams() {
+  const sel = $("webcamDevice");
+  let cams = [];
+  try {
+    cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+  } catch {}
+  const keep = sel.value || webcamSaved.deviceId;
+  sel.textContent = "";
+  sel.add(new Option(cams.length ? "— Elige una cámara —" : "No se encuentra ninguna cámara", ""));
+  for (const c of cams) {
+    const name = c.label || "Cámara sin nombre";
+    sel.add(new Option(/obs/i.test(name) ? `${name} (recomendada si usas OBS)` : name, c.deviceId));
+  }
+  // La guardada, aunque ahora no esté conectada.
+  if (webcamSaved.deviceId && !cams.some((c) => c.deviceId === webcamSaved.deviceId)) {
+    const byLabel = cams.find((c) => c.label && c.label === webcamSaved.deviceLabel);
+    if (byLabel) sel.value = byLabel.deviceId;
+    else sel.add(new Option(`${webcamSaved.deviceLabel || "Cámara guardada"} (no conectada)`, webcamSaved.deviceId));
+  }
+  if (keep && [...sel.options].some((o) => o.value === keep)) sel.value = keep;
+}
+
+function selectedWebcamLabel() {
+  const o = $("webcamDevice").selectedOptions[0];
+  if (!o || !o.value) return "";
+  return o.text.replace(/ \((recomendada si usas OBS|no conectada)\)$/, "");
+}
+
+$("webcamRefresh").addEventListener("click", listWebcams);
+if (navigator.mediaDevices) navigator.mediaDevices.addEventListener("devicechange", listWebcams);
+
 // ---------- OBS ----------
 
 async function refreshObs() {
@@ -211,6 +247,8 @@ async function refreshObs() {
   try {
     const w = await invoke("window_state");
     if (document.activeElement !== $("alwaysOnTop")) $("alwaysOnTop").checked = w.alwaysOnTop;
+    // Se puede ocultar desde el menú de la propia ventana de webcam.
+    if (document.activeElement !== $("webcamEnabled")) $("webcamEnabled").checked = w.webcamEnabled;
   } catch {}
   if (document.activeElement !== $("obsUrl")) $("obsUrl").value = info.url || "";
   $("obsSize").textContent = `Tamaño de la ventana del chat: ${info.width} × ${info.height}. En OBS se escala sin deformarse a cualquier tamaño de fuente.`;
@@ -392,6 +430,11 @@ function fill(view) {
   $("customCss").value = a.customCss;
   $("baseUrl").value = a.baseUrl;
   $("obsEnabled").checked = view.obs.enabled;
+  $("webcamEnabled").checked = view.webcam.enabled;
+  $("webcamMirror").checked = view.webcam.mirror;
+  webcamSaved = { deviceId: view.webcam.deviceId, deviceLabel: view.webcam.deviceLabel };
+  $("webcamDevice").value = "";
+  listWebcams();
   $("obsPort").value = view.obs.port;
   $("nativeWayland").checked = s.nativeWayland;
   $("compatRendering").checked = s.compatRendering;
@@ -444,6 +487,12 @@ function collect() {
     obs: {
       enabled: $("obsEnabled").checked,
       port: Number($("obsPort").value) || 8187,
+    },
+    webcam: {
+      enabled: $("webcamEnabled").checked,
+      deviceId: $("webcamDevice").value,
+      deviceLabel: selectedWebcamLabel(),
+      mirror: $("webcamMirror").checked,
     },
   };
 }

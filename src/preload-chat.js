@@ -34,10 +34,23 @@ function blockMedia() {
   lock(Navigator.prototype, "webkitGetUserMedia", legacy);
 }
 
-try {
-  contextBridge.executeInMainWorld({ func: blockMedia });
-} catch (e) {
-  console.warn("[shuriken] no se pudo bloquear multimedia:", e);
+// La única excepción: nuestra ventana de webcam (página local ui/webcam.html, frame
+// principal). Ahí la app permite SOLO vídeo (el main deniega el micrófono igualmente).
+const isWebcamPage = window.top === window && location.protocol === "file:" && /\/ui\/webcam\.html$/.test(location.pathname);
+
+if (!isWebcamPage) {
+  try {
+    contextBridge.executeInMainWorld({ func: blockMedia });
+  } catch (e) {
+    console.warn("[shuriken] no se pudo bloquear multimedia:", e);
+  }
+} else {
+  // Dispositivo y espejo elegidos en Configuración → Webcam.
+  contextBridge.exposeInMainWorld("shurikenWebcam", {
+    onConfig: (cb) => {
+      if (typeof cb === "function") ipcRenderer.on("shuriken:webcam-config", (_e, cfg) => cb(cfg));
+    },
+  });
 }
 
 // ---------- 1b. Puente del chat propio (solo en nuestra página ui/chat.html) ----------

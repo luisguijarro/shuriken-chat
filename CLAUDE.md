@@ -121,6 +121,15 @@ test/config.test.js       Tests de config (node --test)
 - `showPlatform` (true por defecto): icono de la plataforma delante del nombre (`ui/platforms/<plataforma>.svg`, mapa `PLATFORMS` en chat.js). Se oculta con la clase `noplatform` sin volver a pintar. En SSN, si es false se añade `&hidesource` (SSN muestra los iconos de origen por defecto). **Al añadir una plataforma**: su SVG en `ui/platforms/` y su entrada en `PLATFORMS`.
 - En modo SSN, cambiar opciones que van en la URL recarga el dock y **SSN pierde los mensajes** (no tiene historial): es inevitable. En modo plataformas el aspecto se aplica sin recargar (comprobado).
 
+## Ventana de webcam
+
+- Ventana aparte (`webcamWin`, `ui/webcam.html` + `webcam.js`) con el **mismo marco** que el chat: `config.webcamCss()` = `frameCss` + `#view,#msg` colocados con el `inset` y el `innerRadius` (con `!important`: la página tiene `inset:0` de base y, a igual especificidad, ganaba). El vídeo va dentro de `#view` (un `<video>` con `width:100%` no respeta márgenes laterales).
+- Config: `webcam` {enabled, deviceId, deviceLabel, mirror} (editable en Configuración → Webcam, con vista previa) y `webcamWindow` {x, y, width, height, alwaysOnTop, locked} (se guarda con `persistWindow`). `syncWebcamWindow()` la abre/cierra; `applyWebcam()` envía CSS y `shuriken:webcam-config`. Menú propio (`webcamMenu`: siempre visible, bloquear, espejo, ocultar). Arrastre/redimensión generalizados: `startDrag(win, dir)`.
+- **Permisos (requisito: el chat nunca usa la cámara)**: el preload NO aplica el bloqueo de multimedia solo en `ui/webcam.html` (frame principal, `file:`); el main permite `media` **solo** a `webcamWc()` y **solo vídeo** (`details.mediaTypes` todo "video"); el *check* de `media` se permite también a Configuración para listar las cámaras con nombre (`enumerateDevices`). Comprobado: micrófono denegado en la webcam; chat sin cámara y 0 dispositivos.
+- El id de un dispositivo puede cambiar: `webcam.js` lo busca también por `deviceLabel`. Errores con texto claro (en uso por otra app → recomendar la cámara virtual de OBS) y reintento.
+- Exclusividad: en Windows y Linux (V4L2) una cámara suele poder usarla una sola app → recomendar **OBS Virtual Camera en modo Fuente** (en Linux, `v4l2loopback`). En macOS se puede compartir.
+- **Pruebas sin tocar la cámara del usuario**: `--use-fake-device-for-media-stream` (cámara simulada `fake_device_0` de Chromium). En la máquina del usuario hay una cámara USB (`/dev/video0`) y la virtual de OBS (`/dev/video4`).
+
 ## OBS (fuente de navegador)
 
 - **Requisito del usuario: en OBS se ve EXACTAMENTE igual que la ventana de la app** (en cualquier modo, también SSN), porque la app también sale en directo cuando se muestra el escritorio. Nada de versiones "parecidas": OBS carga **los mismos ficheros** del chat.
@@ -187,6 +196,8 @@ npm run build -- appimage     # solo AppImage (o deb, rpm, pacman)
 Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm start`.
 
 ## Estado actual
+
+- 🚧 Rama `webcam` (v0.9.0, parte de `licencia`): ventana de webcam. Probado con la cámara simulada (lista con nombres, vídeo 1920×1080, espejo, marco, permisos). Pendiente: prueba del usuario con la cámara virtual de OBS, PR y release.
 
 - ✅ v0.8.0 (macOS) fusionada y publicada en Forgejo y GitHub con los 10 paquetes.
 - ✅ v0.7.0 (Windows) fusionada y publicada.

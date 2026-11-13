@@ -50,6 +50,7 @@ Tiene dos modos (*Fuente del chat*):
 
 - 💬 **Twitch, Kick y YouTube en un solo chat**, cada mensaje con el icono de su plataforma.
 - 🎥 **También en OBS**, idéntico a la ventana del escritorio y con las mismas proporciones.
+- 📷 **Ventana de webcam** aparte, con el mismo marco que el chat (ideal con la cámara virtual de OBS).
 - 😀 **Se ve como en cada plataforma**: emotes del canal (también los de suscriptor), **7TV, BTTV y FFZ**, insignias oficiales, colores de usuario, Super Chats con su color…
 - 🛡️ **Revisión del AutoMod de Twitch** desde el propio chat (con tu cuenta): el mensaje retenido no se muestra; al pasar el ratón lo ves y lo permites o deniegas.
 - 🟢 **Estado de cada plataforma** de un vistazo: iconos con un punto de color arriba a la derecha.
@@ -150,6 +151,23 @@ La app sirve el **mismo chat del escritorio** para usarlo en OBS como **Fuente d
 
 El chat para OBS se activa o se para desde *Configuración → OBS*, el botón 📡 o el clic derecho.
 
+## Ventana de webcam
+
+Una ventana aparte con tu webcam, con el **mismo marco** que el chat (borde, esquinas, margen y fondo). Se mueve, se redimensiona, tiene su propio «siempre visible» y «bloquear», y su menú con el **clic derecho** (Configuración, espejo, ocultar…).
+
+1. En **Configuración → Webcam**, elige la cámara y marca **Mostrar la ventana de webcam**.
+2. Si quieres verte como en un espejo, marca **Voltear horizontalmente**.
+
+**¿Usas la webcam en OBS?** En Windows y en Linux una cámara normalmente solo la puede usar **una aplicación a la vez**: si OBS la tiene, las demás no pueden abrirla. La solución es pedírsela a OBS con su **cámara virtual**:
+
+1. En OBS: **Cámara virtual → ⚙ (Configurar) → Tipo de salida: Fuente** y elige la fuente de tu webcam (con sus filtros, recorte, croma…).
+2. Pulsa **Iniciar cámara virtual**.
+3. En Shuriken Chat, elige **OBS Virtual Camera** como cámara.
+
+En Linux, la cámara virtual de OBS necesita el módulo `v4l2loopback` (OBS lo pide la primera vez).
+
+> La ventana de webcam solo usa **vídeo**: nunca el micrófono. El chat (y la página de SSN) siguen sin acceso a ninguna cámara.
+
 ## Uso de la ventana
 
 | Acción | Cómo |
@@ -192,6 +210,7 @@ Los cambios se ven **en directo**. Pulsa **Guardar** para conservarlos; con **De
 | YouTube | Canales (`@canal`) o directos concretos |
 | Importar / Conexión *(SSN)* | URL del dock, ID de sesión e idioma |
 | Ventana | **Siempre visible** (se aplica al momento) |
+| Webcam | Mostrar la ventana de webcam, cámara (la virtual de OBS recomendada) y espejo |
 | OBS | Activar, URL para la fuente de navegador, tabla de tamaño y posición por lienzo, puerto y cambio de clave |
 | Aspecto del chat | Escala del texto, margen lateral, modo oscuro, burbujas, brillo en el texto, colores por usuario, difuminar mensajes antiguos, **texto debajo del nombre**, **icono de la plataforma** y ocultar la barra de controles de SSN |
 | Marco de la ventana | Margen alrededor del chat, esquinas redondeadas, grosor, color y opacidad del borde |
@@ -201,7 +220,7 @@ Los cambios se ven **en directo**. Pulsa **Guardar** para conservarlos; con **De
 
 ## Privacidad y seguridad
 
-- **Cámara, micrófono, pantalla y ubicación bloqueados** para cualquier página (incluida la de SSN): la app solo necesita leer el chat.
+- **Cámara, micrófono, pantalla y ubicación bloqueados** para cualquier página (incluida la de SSN). La única excepción es la **ventana de webcam**, que puede usar solo vídeo (nunca el micrófono) de la cámara que elijas.
 - **Sesión de Twitch**: se guarda **cifrada con el llavero del sistema** (KWallet, GNOME Keyring…), aparte de la configuración. Cerrar sesión la borra y revoca el acceso en Twitch.
 - **Chat para OBS**: solo accesible desde tu equipo y con una clave en la URL.
 - **Mensajes del chat**: se muestran siempre como texto, nunca como código, y los enlaces se abren en tu navegador.
@@ -373,6 +392,7 @@ shuriken-chat/
 │   ├── frame.html                Marco de la ventana (borde, fondo, esquinas)
 │   ├── obs.html/.js, obs-bridge.js  Página para OBS
 │   ├── settings.html/.css/.js    Ventana de Configuración
+│   ├── webcam.html/.js           Ventana de webcam
 │   ├── welcome.html              Pantalla inicial del modo SSN sin sesión
 │   ├── platforms/                Iconos de las plataformas
 │   └── badges/                   Iconos propios de insignias (Kick, YouTube)
