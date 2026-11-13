@@ -98,7 +98,8 @@
         "libnotify",
         "libsecret",
         "xdg-utils"
-      ]
+      ],
+      "packageCategory": "Applications/Internet"
     }
   },
   "allowScripts": {
