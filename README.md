@@ -410,4 +410,6 @@ shuriken-chat/
 
 ## Licencia
 
-MIT.
+[MIT](LICENSE) © 2026 Luis Guijarro Pérez. Puedes usar, copiar, modificar y distribuir Shuriken Chat libremente, también con fines comerciales, siempre que conserves el aviso de copyright y la licencia.
+
+Los paquetes incluyen además las licencias de Electron y Chromium (`LICENSE.electron.txt` y `LICENSES.chromium.html`).

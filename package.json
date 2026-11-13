@@ -4,7 +4,7 @@
   "version": "0.8.0",
   "private": true,
   "description": "Chat de Twitch, Kick y YouTube flotando en tu escritorio y en OBS",
-  "author": "Shuriken Chat",
+  "author": "Luis Guijarro Pérez",
   "license": "MIT",
   "main": "src/main.js",
   "scripts": {
@@ -30,7 +30,8 @@
       "src/**",
       "ui/**",
       "assets/icons/**",
-      "package.json"
+      "package.json",
+      "LICENSE"
     ],
     "directories": {
       "output": "dist"

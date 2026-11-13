@@ -11,13 +11,14 @@ Todo se muestra en una ventana **sin bordes, transparente, redimensionable, arra
 - Entorno del usuario: CachyOS (Arch), **KDE Plasma sobre Wayland**, GPU AMD (amdgpu).
 - Idioma: el usuario habla español. **Interfaz, comentarios y mensajes en español.**
 - Proyecto independiente: no usar "Social Stream Ninja" ni "Ninja" como nombre de la app.
+- **Licencia MIT** (`LICENSE`, © Luis Guijarro Pérez; el usuario la eligió frente a 0BSD). Va también dentro de los paquetes (`build.files`). No copiar código de Social Stream Ninja (es GPL): solo datos técnicos (claves, nombres de eventos).
 
 ## Ramas y releases
 
 - **Una rama por plataforma o feature**, con su nombre (`twitch`, `kick`, `youtube`, `obs`…), y **una release por cada una**. Versiones: 0.2.0 = solo SSN, 0.3.0 = Twitch, 0.4.0 = Kick, 0.5.0 = YouTube, 0.6.0 = OBS (publicadas), 0.6.1 = paquetes .deb/.rpm/.pacman.
 - Tras terminar una plataforma: tests, prueba en vivo, commit en su rama, push y AppImage (`npm run build:appimage`). Fusionar en master y publicar la release solo cuando el usuario lo confirme.
 - El remoto `origin` es un Gitea/Forgejo propio (git.dark-pi.net).
-- **Releases**: adjuntar AppImage, `.deb`, `.rpm` y `.pacman` + `SHA256SUMS.txt` (`fj release create --tag vX --attach …`).
+- **Releases** (en Forgejo **y** en GitHub, con todos los paquetes): 1) `npm run build` (Linux + Windows) en local; 2) `git tag -a vX` + `git push origin vX` → el **push mirror de Forgejo** (configurado por el usuario) lo lleva a GitHub y el workflow de macOS construye y sube los .dmg/.zip a la release vX de GitHub; 3) esperar a `…/releases/download/vX/SHA256SUMS-macos.txt` (sin API), descargar los paquetes de Mac a `dist/`, `sha256sum -c`, juntar las sumas en `SHA256SUMS.txt`; 4) Forgejo: `fj release create --tag vX --attach …` con los 10 paquetes + `SHA256SUMS.txt`; 5) GitHub: `gh release upload vX -R luisguijarro/shuriken-chat` (Linux, Windows y `SHA256SUMS.txt`), `gh release edit … --title … --notes-file … --latest` y `gh release delete-asset vX SHA256SUMS-macos.txt`. `gh` está autenticado (cuenta luisguijarro). Ya no hace falta `git push github`: el espejo es automático.
 
 ## Windows
 
@@ -28,7 +29,7 @@ Todo se muestra en una ventana **sin bordes, transparente, redimensionable, arra
 
 ## macOS y espejo en GitHub
 
-- **Espejo público**: `github.com/luisguijarro/shuriken-chat` (remoto `github`). El historial se reescribió para quitar el correo personal del usuario: los commits usan `53170330+luisguijarro@users.noreply.github.com` (configurado como `user.email` **solo en este repo**; el global sigue siendo el personal → **no** volver a usar el global aquí). Copia del historial anterior: `~/.local/share/shuriken-chat-backup-antes-de-github.bundle`. **Nunca** publicar el correo personal del usuario. Mientras el usuario no configure el push mirror de Forgejo → GitHub, hay que hacer también `git push github <rama>` (y las etiquetas).
+- **Espejo público**: `github.com/luisguijarro/shuriken-chat` (remoto `github`). El historial se reescribió para quitar el correo personal del usuario: los commits usan `53170330+luisguijarro@users.noreply.github.com` (configurado como `user.email` **solo en este repo**; el global sigue siendo el personal → **no** volver a usar el global aquí). Copia del historial anterior: `~/.local/share/shuriken-chat-backup-antes-de-github.bundle`. **Nunca** publicar el correo personal del usuario. El **push mirror de Forgejo → GitHub ya está configurado** (sincroniza al hacer push, ramas y etiquetas; borra en GitHub lo que no está en Forgejo, como la etiqueta `pruebas-macos`, que el workflow vuelve a crear).
 - **Construcción en GitHub Actions** (`.github/workflows/macos.yml`, `macos-latest` = Apple Silicon): `npm ci`, tests, `node scripts/build.js mac` (.dmg y .zip para arm64 **y** x64), `codesign --verify`, prueba de arranque real (config en `~/Library/Application Support/shuriken-chat`, `SHURIKEN_DEBUG=1`, 45 s, busca "diagnóstico" y hace `screencapture`). En la rama `macos` publica todo en la release de pruebas **`pruebas-macos`** (prerelease, se recrea en cada ejecución); con etiquetas `v*`, sube los .dmg/.zip y `SHA256SUMS-macos.txt` a la release de esa versión en GitHub (de ahí se copian a la release de Forgejo).
 - **Leer resultados sin cuenta**: descargar de `https://github.com/luisguijarro/shuriken-chat/releases/download/pruebas-macos/<fichero>` (build.log, tests.log, firma.log, arranque.log, captura-macos.png). **No sondear la API de GitHub** sin autenticar: límite de 60 peticiones/hora (se agotó una vez). Y en zsh, comillas en URLs con `?`.
 - Firma **ad hoc** (`mac.identity: "-"`, `hardenedRuntime: false`): imprescindible para arrancar en Apple Silicon; sin cuenta de Apple Gatekeeper avisa la primera vez (README: Privacidad y seguridad → «Abrir igualmente», o `xattr -dr com.apple.quarantine`).
@@ -187,7 +188,7 @@ Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm
 
 ## Estado actual
 
-- 🚧 Rama `macos` (v0.8.0): .dmg/.zip arm64 + x64 construidos y probados (arranque real) en GitHub Actions. Pendiente: PR, etiqueta y release (copiar los paquetes de la release de GitHub a la de Forgejo). Sin Mac real para probar ratón/menús/Gatekeeper.
+- ✅ v0.8.0 (macOS) fusionada y publicada en Forgejo y GitHub con los 10 paquetes.
 - ✅ v0.7.0 (Windows) fusionada y publicada.
 
 - 🚧 Rama `windows` (v0.7.0): instalador + portable desde Linux (wine). Probado en la VM de Windows 11: instalación silenciosa (menú Inicio, escritorio, desinstalador, datos del .exe), arranque con Twitch + Kick + YouTube (transparencia, marco, iconos, insignias, RTL), servidor de OBS (solo 127.0.0.1, clave). Pendiente: pruebas con ratón (arrastrar, menú, Configuración, bandeja, botones), PR y release.
