@@ -74,6 +74,11 @@ function relaunchWithX11IfNeeded() {
   }
 }
 
+// Mensajes internos de Chromium: solo los fatales, salvo con SHURIKEN_DEBUG=1.
+// (P. ej. "GetVSyncParametersIfAvailable() failed": XWayland no da la sincronía de la
+// pantalla, Chromium usa 60 Hz y sigue sin problema, pero lo registra como ERROR.)
+if (!process.env.SHURIKEN_DEBUG) app.commandLine.appendSwitch("log-level", "3");
+
 const relaunching = relaunchWithX11IfNeeded();
 if (cfg.system.compatRendering) app.disableHardwareAcceleration();
 

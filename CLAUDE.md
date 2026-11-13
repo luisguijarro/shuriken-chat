@@ -144,7 +144,7 @@ test/config.test.js       Tests de config (node --test)
 - **`webContents.executeJavaScript` espera a que la página termine de cargar**, y SSN nunca termina (conexiones abiertas): usar `webContents.mainFrame.executeJavaScript`.
 - npm 12 bloquea scripts de instalación: `electron-winstaller` está denegado (solo Windows); el binario de Electron sí se descarga.
 - Al hacer `pkill` en pruebas, matar primero el proceso principal; si se matan antes los hijos sale un falso "GPU process isn't usable". Usar patrones tipo `[s]huriken-chat/...` para que `pkill -f` no se mate a sí mismo.
-- Avisos inofensivos al arrancar: `GetVSyncParametersIfAvailable() failed`, `atom_cache ... kAtomsToCache`, y "Wake lock request failed" de SSN (denegado a propósito).
+- **Registro de Chromium silenciado**: `app.commandLine.appendSwitch("log-level", "3")` (solo fatales) salvo con `SHURIKEN_DEBUG=1`. Se pone antes de arrancar Chromium para que lo hereden todos sus procesos. Oculta avisos inofensivos como `GetVSyncParametersIfAvailable() failed` (XWayland no da la sincronía de la pantalla; Chromium usa 60 Hz), `atom_cache ... kAtomsToCache` y "Wake lock request failed" de SSN. Los `console.*` propios de la app (`[shuriken] …`) se siguen viendo. Para probar logs sin relanzar, pasar `--ozone-platform=x11` (si no, el proceso vigilado sale enseguida y el hijo escribe después).
 
 ## Comandos
 
