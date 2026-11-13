@@ -131,6 +131,15 @@
           <button id="obsCopy" type="button" class="ghost">Copiar</button>
         </div>
         <p id="obsSize" class="muted"></p>
+        <details id="obsScaleBox">
+          <summary>Tamaño y posición según el lienzo de OBS</summary>
+          <p class="muted">Para que el chat ocupe en el directo la misma parte de la pantalla que en tu escritorio, pon en la Fuente de navegador el <b>ancho y alto</b> de la fila de tu lienzo (OBS → Ajustes → Vídeo → <i>Resolución base (lienzo)</i>) y colócala en la <b>posición</b> indicada (clic derecho en la fuente → Transformar → Editar transformación).</p>
+          <table id="obsScale" class="scale-table">
+            <thead><tr><th>Lienzo</th><th>Ancho × Alto</th><th>Posición (X, Y)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <p id="obsScreen" class="muted"></p>
+        </details>
         <p id="obsMsg" class="msg"></p>
         <details>
           <summary>Avanzado</summary>

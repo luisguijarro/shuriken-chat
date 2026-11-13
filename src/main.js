@@ -266,14 +266,28 @@ function persistObsKey() {
 }
 
 function obsInfo() {
-  const [width, height] = alive(chatWin) ? chatWin.getContentSize() : [cfg.window.width, cfg.window.height];
+  const b = alive(chatWin)
+    ? chatWin.getContentBounds()
+    : { x: cfg.window.x || 0, y: cfg.window.y || 0, width: cfg.window.width, height: cfg.window.height };
+  // Pantalla donde está la ventana: sirve para traducir su tamaño y posición a un lienzo de OBS.
+  const d = screen.getDisplayMatching(b);
+  const k = d.scaleFactor || 1;
   return {
     enabled: cfg.obs.enabled,
     running: cfg.obs.enabled && obs.running,
     error: cfg.obs.enabled ? obs.error : null,
     url: cfg.obs.enabled ? obs.url() : null,
-    width,
-    height,
+    width: b.width,
+    height: b.height,
+    // En píxeles reales de la pantalla (como el lienzo de OBS).
+    screen: {
+      width: Math.round(d.bounds.width * k),
+      height: Math.round(d.bounds.height * k),
+      winWidth: Math.round(b.width * k),
+      winHeight: Math.round(b.height * k),
+      x: Math.round((b.x - d.bounds.x) * k),
+      y: Math.round((b.y - d.bounds.y) * k),
+    },
   };
 }
 

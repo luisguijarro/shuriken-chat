@@ -207,9 +207,46 @@ async function refreshObs() {
   }
   document.body.classList.toggle("obs-off", !info.enabled);
   if (document.activeElement !== $("obsUrl")) $("obsUrl").value = info.url || "";
-  $("obsSize").textContent = `Tamaño de la fuente en OBS: ${info.width} × ${info.height} (el de la ventana del chat). Si es otro, se escala sin deformarse.`;
+  $("obsSize").textContent = `Tamaño de la ventana del chat: ${info.width} × ${info.height}. En OBS se escala sin deformarse a cualquier tamaño de fuente.`;
+  renderObsScale(info.screen);
   if (info.error) message("obsMsg", info.error, "error");
   else if ($("obsMsg").classList.contains("error")) message("obsMsg", "", "");
+}
+
+// Lienzos habituales de OBS (16:9). La escala sale de la ALTURA: así sirve también
+// con pantallas ultrapanorámicas, aunque la posición X se ajusta a un lienzo 16:9.
+const CANVASES = [
+  [1280, 720],
+  [1920, 1080],
+  [2560, 1440],
+  [3840, 2160],
+];
+
+function renderObsScale(scr) {
+  const tbody = document.querySelector("#obsScale tbody");
+  if (!scr || !scr.height) return;
+  const key = JSON.stringify(scr);
+  if (tbody.dataset.key === key) return; // sin cambios: no repintar (evita parpadeo)
+  tbody.dataset.key = key;
+  tbody.textContent = "";
+  const rows = CANVASES.some(([, h]) => h === scr.height) ? CANVASES : [...CANVASES, [scr.width, scr.height]].sort((a, b) => a[1] - b[1]);
+  for (const [cw, ch] of rows) {
+    const r = ch / scr.height;
+    const tr = document.createElement("tr");
+    if (ch === scr.height) tr.className = "current";
+    const cells = [
+      `${cw} × ${ch}${ch === scr.height ? " (tu pantalla)" : ""}`,
+      `${Math.round(scr.winWidth * r)} × ${Math.round(scr.winHeight * r)}`,
+      `${Math.round(scr.x * r)}, ${Math.round(scr.y * r)}`,
+    ];
+    for (const c of cells) {
+      const td = document.createElement("td");
+      td.textContent = c;
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
+  $("obsScreen").textContent = `Calculado para tu pantalla de ${scr.width} × ${scr.height}, donde la ventana del chat mide ${scr.winWidth} × ${scr.winHeight} en (${scr.x}, ${scr.y}). Se actualiza al mover o redimensionar la ventana.`;
 }
 
 $("obsCopy").addEventListener("click", async () => {

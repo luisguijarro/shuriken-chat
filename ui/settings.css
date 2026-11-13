@@ -171,3 +171,9 @@ body.tw-account .tw-anon-only { display: none !important; }
 /* ---------- OBS ---------- */
 body.obs-off .obs-on { display: none; }
 #obsSize { margin: 6px 0 0; font-size: 13px; }
+.scale-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.scale-table th, .scale-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+.scale-table th { font-weight: 600; opacity: .7; }
+.scale-table tr.current td { color: #2ecc71; font-weight: 600; }
+#obsScaleBox { margin-top: 8px; }
+#obsScaleBox summary { cursor: pointer; font-size: 13px; }
