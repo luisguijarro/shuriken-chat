@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Shuriken Chat · Apariencia</title>
+  <title>Shuriken Chat · Configuración</title>
   <link rel="stylesheet" href="settings.css" />
 </head>
 <body>
@@ -69,6 +69,17 @@
       </div>
       <p id="kickMsg" class="msg"></p>
       <ul id="kickList" class="chips kick"></ul>
+    </section>
+
+    <section class="native-only">
+      <h2>YouTube</h2>
+      <p class="muted">Escribe tu canal (<code>@canal</code>) o pega su URL: el chat se conecta solo cuando empiezas un directo. También vale la URL de un directo concreto. No hace falta cuenta.</p>
+      <div class="row">
+        <input id="youtubeInput" type="text" placeholder="@tu_canal" spellcheck="false" autocomplete="off" />
+        <button id="youtubeAdd" type="button">Añadir</button>
+      </div>
+      <p id="youtubeMsg" class="msg"></p>
+      <ul id="youtubeList" class="chips youtube"></ul>
     </section>
 
     <section class="ssn-only">

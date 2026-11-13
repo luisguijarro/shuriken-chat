@@ -10,6 +10,7 @@ const path = require("path");
 
 const { normalizeChannel } = require("./sources/twitch-parse");
 const { normalizeKickChannel } = require("./sources/kick-parse");
+const { normalizeYoutubeTarget } = require("./sources/youtube-parse");
 
 const DEFAULT_BASE_URL = "https://socialstream.ninja/dock.html";
 
@@ -60,7 +61,9 @@ function normalizeSources(raw, appearance) {
   const useAccount = typeof obj(s.twitch).useAccount === "boolean" ? obj(s.twitch).useAccount : !channels.length;
   const kickList = Array.isArray(obj(s.kick).channels) ? obj(s.kick).channels : [];
   const kick = { channels: [...new Set(kickList.map(normalizeKickChannel).filter(Boolean))] };
-  return { mode, twitch: { useAccount, channels, clientId }, kick };
+  const ytList = Array.isArray(obj(s.youtube).channels) ? obj(s.youtube).channels : [];
+  const youtube = { channels: [...new Set(ytList.map(normalizeYoutubeTarget).filter(Boolean))] };
+  return { mode, twitch: { useAccount, channels, clientId }, kick, youtube };
 }
 
 /** Opciones que requieren reiniciar la app. */
@@ -138,6 +141,7 @@ function userSettings(config) {
       mode: config.sources.mode,
       twitch: { ...config.sources.twitch, channels: [...config.sources.twitch.channels] },
       kick: { channels: [...config.sources.kick.channels] },
+      youtube: { channels: [...config.sources.youtube.channels] },
     },
     appearance: { ...config.appearance },
     system: { ...config.system },

@@ -14,7 +14,7 @@ Todo se muestra en una ventana **sin bordes, transparente, redimensionable, arra
 
 ## Ramas y releases
 
-- **Una rama por plataforma**, con el nombre de la plataforma (`twitch`, luego `kick`, `youtube`…), y **una release por cada plataforma añadida**. Versiones: 0.2.0 = solo SSN, 0.3.0 = Twitch (publicada), 0.4.0 = Kick.
+- **Una rama por plataforma**, con el nombre de la plataforma (`twitch`, luego `kick`, `youtube`…), y **una release por cada plataforma añadida**. Versiones: 0.2.0 = solo SSN, 0.3.0 = Twitch, 0.4.0 = Kick (publicadas), 0.5.0 = YouTube.
 - Tras terminar una plataforma: tests, prueba en vivo, commit en su rama, push y AppImage (`npm run build:appimage`). Fusionar en master y publicar la release solo cuando el usuario lo confirme.
 - El remoto `origin` es un Gitea/Forgejo propio (git.dark-pi.net).
 
@@ -40,8 +40,11 @@ src/sources/twitch-eventsub.js EventSub por WebSocket: AutoMod (automod.message.
 src/sources/kick.js          Conector de Kick: API pública del canal + Pusher (sin cuenta), 7TV, avisos
 src/sources/kick-parse.js    Puro y testeado: normalizeKickChannel, parseKickContent ([emote:id:nombre]), insignias
 ui/badges/kick/*.svg         Iconos propios de las insignias clásicas de Kick (vienen sin imagen)
+src/sources/youtube.js       Conector de YouTube: busca el directo del canal y sondea el chat (sin cuenta ni claves)
+src/sources/youtube-parse.js Puro y testeado: normalizeYoutubeTarget, parseLivePage, acciones del chat -> eventos
+ui/badges/youtube/*.svg      Iconos propios: propietario, moderador, verificado (miembro = imagen del canal)
 ui/chat.html/.css/.js     Render del chat propio (modo plataformas)
-ui/settings.html/.css/.js Ventana "Apariencia…": formulario, importar URL de SSN, vista previa en vivo
+ui/settings.html/.css/.js Ventana "Configuración…": formulario, importar URL de SSN, vista previa en vivo
 ui/frame.html             Marco de la ventana del chat (borde, fondo chroma, esquinas); estilo inyectado con frameCss()
 ui/welcome.html           Se muestra en la vista del chat si aún no hay sesión
 assets/icon.svg           Icono fuente; assets/icons/*.png|ico para ventana, bandeja y empaquetado
@@ -58,7 +61,7 @@ test/config.test.js       Tests de config (node --test)
 - **Arrastre/redimensión**: el preload envía `shuriken:drag-start` (dirección o null) y `drag-end`; el main sigue el cursor con `screen.getCursorScreenPoint()` cada 16 ms y hace `setPosition`/`setBounds`. Requiere X11 (ver abajo). Alt+arrastrar funciona sobre enlaces/botones.
 - **IPC**: el main comprueba `event.sender` (chat vs ajustes). La web remota solo puede: `shuriken:menu`, `drag-start`, `drag-end`, `page-state`. Los comandos de ajustes (`get_settings`, `preview_settings`, `save_settings`, `revert_settings`) solo se aceptan desde la ventana de ajustes. **Al añadir un comando**: registrarlo en `registerIpc()` y, si es de ajustes, en la lista blanca de `preload-settings.js`.
 - **Ajustes**: `preview_settings` aplica sin guardar; `save_settings` guarda; cerrar la ventana de ajustes vuelve a lo que hay en disco.
-- **Menú contextual** (nativo): Apariencia…, Zoom, Siempre visible, Bloquear posición y tamaño, Atravesar clics, Recargar, Salir. **Bandeja**: Mostrar/ocultar, Atravesar clics (única forma de desactivarlo sin reiniciar), Apariencia…, Salir.
+- **Menú contextual** (nativo): Configuración…, Zoom, Siempre visible, Bloquear posición y tamaño, Atravesar clics, Recargar, Salir. **Bandeja**: Mostrar/ocultar, Atravesar clics (única forma de desactivarlo sin reiniciar), Configuración…, Salir.
 - **Config** en `~/.config/shuriken-chat/config.json` (`%APPDATA%` en Windows). `userData` de Chromium se fija en esa misma carpeta (si no, sería "~/.config/Shuriken Chat").
   - `appearance`: lo que va a la URL (session, ln, scale, sidepadding, chroma RGBA hex, darkmode, bubble, textglow, randomcolor, fadedtop, hidemenu, extraParams) + marco (margin=10, borderWidth=1, borderColor RGBA hex, cornerRadius=10). Defaults = config elegida por el usuario: sidePadding 0, useChroma true con chroma 00000066, borde 1 px ffffff66 + CSS (transparentBg, opacity, hideScrollbar, customCss).
   - `hideMenu` (true por defecto) añade `&hidemenu`: SSN solo oculta su barra de controles sola dentro de OBS.
@@ -76,9 +79,9 @@ test/config.test.js       Tests de config (node --test)
 - **Twitch**: lectura anónima, sin cuenta ni claves. Emotes nativos (incluidos los de suscriptor del canal) por posición del tag `emotes` — **posiciones en caracteres Unicode, no UTF-16** (`Array.from`). Emotes de terceros por palabra: prioridad canal > global y 7TV > BTTV > FFZ. Zero-width: 7TV `flags & 1` o `data.flags & 256`; BTTV lista fija; FFZ `modifier`. Insignias con imágenes oficiales vía `api.ivr.fi/v2/twitch/badges/{global,channel?login=}`. El `room-id` (de ROOMSTATE) dispara la carga de emotes/insignias del canal.
 - Los mensajes de cada canal se **encolan hasta que sus emotes están cargados** (máx. 4 s, `whenReady`) para que los primeros no salgan sin emotes; borrados/baneos van por la misma cola para no adelantarse.
 - Eventos soportados: mensajes, /me, respuestas, primer mensaje, mensajes destacados, subs/regalos/raids/anuncios (USERNOTICE), borrado de mensaje (CLEARMSG), baneo/timeout (CLEARCHAT con usuario) y vaciado del chat.
-- Opciones de Apariencia que usa el render propio: darkMode, bubble, textGlow, randomColor, fadedTop, scale, sidePadding (+ el CSS común: transparencia, opacidad, CSS personalizado). Las exclusivas de SSN (sesión, idioma, hideMenu, extraParams, baseUrl, URL generada) se ocultan en modo plataformas (`.ssn-only`).
+- Opciones de Configuración que usa el render propio: darkMode, bubble, textGlow, randomColor, fadedTop, scale, sidePadding (+ el CSS común: transparencia, opacidad, CSS personalizado). Las exclusivas de SSN (sesión, idioma, hideMenu, extraParams, baseUrl, URL generada) se ocultan en modo plataformas (`.ssn-only`).
 - `sources.mode` por defecto: "native", salvo que ya haya sesión de SSN (así quien actualiza no ve cambios).
-- **Twitch no avisa si un canal no existe** (ni error ni JOIN): si no confirma la unión en 8 s (`JOIN_TIMEOUT_MS`) se emite un estado `error`. Al añadir un canal en Apariencia se comprueba con IVR (`check_twitch_channel` → `lookupChannel`): rojo si no existe, punto rojo si está en directo.
+- **Twitch no avisa si un canal no existe** (ni error ni JOIN): si no confirma la unión en 8 s (`JOIN_TIMEOUT_MS`) se emite un estado `error`. Al añadir un canal en Configuración se comprueba con IVR (`check_twitch_channel` → `lookupChannel`): rojo si no existe, punto rojo si está en directo.
 - **Panel de estado** (`#waiting` en chat.html): mientras no hay mensajes muestra el estado de cada canal (conectando / conectado, esperando mensajes / error), porque una ventana vacía parece rota. `SourceManager.snapshot()` incluye el último estado de cada canal para reenviarlo al recargar la página.
 - `twoLines` (true por defecto): texto debajo del nombre. En el chat propio es la clase `twolines`; en SSN añade `&twolines`. Al importar una URL de SSN sin ese parámetro se conserva la preferencia (igual que `hideMenu`).
 - `showPlatform` (true por defecto): icono de la plataforma delante del nombre (`ui/platforms/<plataforma>.svg`, mapa `PLATFORMS` en chat.js). Se oculta con la clase `noplatform` sin volver a pintar. En SSN, si es false se añade `&hidesource` (SSN muestra los iconos de origen por defecto). **Al añadir una plataforma**: su SVG en `ui/platforms/` y su entrada en `PLATFORMS`.
@@ -94,14 +97,24 @@ test/config.test.js       Tests de config (node --test)
 - 7TV funciona con Kick por **user_id** (`7tv.io/v3/users/kick/<user_id>`), no por id de canal.
 - **Permisos de Claude Code**: el clasificador bloqueó probar Kick (lo consideró acceso a terceros). El usuario añadió reglas en `.claude/settings.local.json` (no se sube): scripts `node …/scratchpad/kick*`, `npm start`, `npm test` y `env -u ELECTRON_RUN_AS_NODE node_modules/electron/dist/electron *`. Para pruebas de la app, que el script fije `XDG_CONFIG_HOME` él mismo (así el comando encaja con la regla).
 
+## YouTube
+
+- **Sin cuenta ni claves**, como la web de YouTube (la API oficial tiene cuota diaria: descartada). El chat va ligado a cada **directo**, no al canal: el usuario escribe `@canal` (o URL de canal / de un directo) y la app busca el directo activo.
+- Objetivos (`normalizeYoutubeTarget`): `@handle` (minúsculas), `channel/UC…` o `v:VIDEOID`. Se guardan así en `sources.youtube.channels`.
+- Flujo (`YoutubeTarget`): `GET youtube.com/<objetivo>/live` (o `watch?v=`) → de la página: `<link rel="canonical" …watch?v=ID>`, `"isLive":true`, `INNERTUBE_CLIENT_VERSION` y la continuación de `liveChatRenderer`. Luego `POST youtubei/v1/live_chat/get_live_chat` con `{context:{client:{clientName:"WEB", clientVersion}}, continuation}`. La primera respuesta es el chat **destacado**: se cambia a "Chat en directo" con la continuación del `viewSelector` (`allMessagesContinuation`). Sondeo cada 3 s (o `timedContinuationData.timeoutMs`).
+- **No se falsifica el User-Agent**: `youtube.com/live_chat` sin cabecera de navegador responde "navegador antiguo", por eso se usa la página del directo (que sí carga) + la API interna con JSON normal. El clasificador de permisos considera eludir protecciones falsificar cabeceras de navegador: no hacerlo.
+- Sin directo: estado `offline` ("se conectará solo cuando empiece") y se vuelve a mirar cada 60 s. Si el chat deja de dar continuación, el directo ha terminado → vuelta a esperar. Los ids ya emitidos se recuerdan (`seen`) porque la primera respuesta repite mensajes recientes.
+- Acciones: `liveChatTextMessageRenderer` (emojis normales como carácter; personalizados `isCustomEmoji` como imagen), Super Chat (`liveChatPaidMessageRenderer`, color ARGB → `--notice`), Super Sticker, miembros e hitos (`liveChatMembershipItemRenderer`), subs regaladas (`…GiftPurchaseAnnouncementRenderer` / `…GiftRedemption…`), regalos (`giftMessageViewModel`), borrados (`removeChatItemAction` / `markChatItemAsDeletedAction`), por autor (`…ByAuthor…` → `clear-user`), `replaceChatItemAction`. YouTube no tiene colores de usuario: color por hash.
+- Insignias: `authorBadges[].liveChatAuthorBadgeRenderer`: `icon.iconType` OWNER / MODERATOR / VERIFIED → iconos propios; `customThumbnail` = insignia de miembro del canal.
+
 ## Sesión de Twitch y AutoMod (opcional)
 
 - **Dos formas de conectar Twitch** (`sources.twitch.useAccount`): **con mi cuenta** → el canal es el del usuario que inicia sesión (automático) y hay AutoMod; **sin cuenta** → canales escritos a mano, solo lectura, sin AutoMod. Los canales efectivos los calcula `SourceManager.twitchChannels(sources)` (úsalo siempre, no `sources.twitch.channels` directamente). Por defecto: con cuenta, salvo que ya hubiera canales escritos. La sesión y la lista se conservan al alternar. Al iniciar/cerrar sesión se reaplica la config y se reenvía el estilo al chat.
 - Leer el chat sigue siendo **anónimo** también con cuenta (IRC justinfan). La sesión solo hace falta para lo que Twitch no muestra a los espectadores: de momento, **mensajes retenidos por el AutoMod** (solo los ven el dueño del canal y sus moderadores).
 - **Inicio de sesión**: device code grant flow con app de tipo **Público** (sin secreto). `POST id.twitch.tv/oauth2/device` (parámetro `scopes`, en plural) → el usuario entra en `verification_uri` (lleva el código; se abre con `shell.openExternal`) → se sondea `oauth2/token` con `grant_type=urn:ietf:params:oauth:grant-type:device_code`. Access token 4 h; el refresh token de clientes públicos es **de un solo uso** y caduca a los 30 días sin uso. Scope actual: `moderator:manage:automod` (añadir scopes obliga a volver a iniciar sesión).
-- **Client ID**: público (se puede incluir en el código). `DEFAULT_CLIENT_ID` en twitch-auth.js (app registrada por el usuario: `ydsw4s6rvi9qild7izjdryl3zvtdb6`); se puede sobrescribir en Apariencia (`sources.twitch.clientId`). Registrar la app exige 2FA en la cuenta de Twitch.
+- **Client ID**: público (se puede incluir en el código). `DEFAULT_CLIENT_ID` en twitch-auth.js (app registrada por el usuario: `ydsw4s6rvi9qild7izjdryl3zvtdb6`); se puede sobrescribir en Configuración (`sources.twitch.clientId`). Registrar la app exige 2FA en la cuenta de Twitch.
 - **Tokens**: en `twitch-auth.json` (NO en config.json), cifrados con `safeStorage` (en la máquina del usuario: kwallet6). Sin llavero: en claro con permisos 600. Cerrar sesión borra el fichero y revoca el token.
-- **EventSub**: `wss://eventsub.wss.twitch.tv/ws`; tras `session_welcome` hay 10 s para suscribirse (`POST helix/eventsub/subscriptions`, transport websocket + session_id). Suscripciones `automod.message.hold` y `automod.message.update` versión 2 por canal (`broadcaster_user_id` + `moderator_user_id` = el usuario). 403 = no es moderador de ese canal (se muestra en Apariencia). `session_reconnect`: conectar a `reconnect_url` y cerrar el viejo tras el welcome (las suscripciones se conservan).
+- **EventSub**: `wss://eventsub.wss.twitch.tv/ws`; tras `session_welcome` hay 10 s para suscribirse (`POST helix/eventsub/subscriptions`, transport websocket + session_id). Suscripciones `automod.message.hold` y `automod.message.update` versión 2 por canal (`broadcaster_user_id` + `moderator_user_id` = el usuario). 403 = no es moderador de ese canal (se muestra en Configuración). `session_reconnect`: conectar a `reconnect_url` y cerrar el viejo tras el welcome (las suscripciones se conservan).
 - **Aprobar/denegar**: `POST helix/moderation/automod/message` `{user_id, msg_id, action: ALLOW|DENY}` → 204. Desde el chat por `window.shurikenChat.automod(id, allow)` → IPC `shuriken:automod`, que el main **solo acepta desde ui/chat.html** en modo plataformas (nunca desde la web de SSN).
 - **Render**: el mensaje retenido NO se muestra; solo un aviso. Con el ratón encima se despliega (motivo, texto, botones) y el autoscroll se pausa (`hoverPause`). Al resolverse (`automod-update`) queda un aviso 20 s. Si se aprueba, el mensaje llega además por IRC como uno normal.
 
@@ -129,10 +142,11 @@ Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm
 
 ## Estado actual
 
-- 🚧 Rama `kick` (v0.4.0): Kick sin cuenta. Probado en vivo (canal inexistente, canal en directo, mensajes, emotes, insignias, respuestas). Pendiente: que el usuario lo pruebe, PR y release.
+- 🚧 Rama `youtube` (v0.5.0): YouTube sin cuenta. Probado en vivo (canal inexistente, canal en directo con 63 mensajes en 20 s, emojis personalizados, canal sin directo → espera). Super Chats/miembros/insignias probados solo con tests (no aparecieron en vivo). Pendiente: que el usuario lo pruebe, PR y release.
+- ✅ v0.4.0 (Kick) fusionada y publicada.
 - ✅ v0.3.0 (Twitch) fusionada y publicada como release en el Forgejo (`fj release create`; `fj release view` busca por nombre, no por etiqueta).
 - 🚧 AutoMod con sesión: hecho y probado sin sesión (render, hover, errores, tests). Client ID incluido; Twitch acepta el inicio del flujo. Pendiente: que el usuario inicie sesión y lo pruebe con un mensaje retenido real. La app está registrada como **Público** (comprobado en la consola; la `verification_uri` devuelta no lleva `public=true` aunque el ejemplo de la documentación sí, y es normal).
-- 🚧 Rama `twitch` (v0.3.0): chat propio con Twitch. Probado en vivo con canales reales (mensajes, colores, insignias, emotes 7TV, añadir canal desde Apariencia, canal inexistente, cambios de aspecto sin perder mensajes). Pendiente: que el usuario lo pruebe con su canal, fusionar en master y publicar release (falta saber cómo publicar en su Gitea: token o `tea`).
+- 🚧 Rama `twitch` (v0.3.0): chat propio con Twitch. Probado en vivo con canales reales (mensajes, colores, insignias, emotes 7TV, añadir canal desde Configuración, canal inexistente, cambios de aspecto sin perder mensajes). Pendiente: que el usuario lo pruebe con su canal, fusionar en master y publicar release (falta saber cómo publicar en su Gitea: token o `tea`).
 - ✅ master (v0.2.0): modo SSN sobre Electron, ya publicado en `origin`.
 - `src-tauri/` se queda en el repo (el usuario dijo que da igual).
 

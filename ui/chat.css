@@ -1,5 +1,5 @@
 /* Shuriken Chat: aspecto del chat propio. Las clases de <html> las pone chat.js
-   según los ajustes de Apariencia (dark, bubble, glow, faded). */
+   según los ajustes de Configuración (dark, bubble, glow, faded). */
 
 :root {
   --scale: 1;

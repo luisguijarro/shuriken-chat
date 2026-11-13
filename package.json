@@ -1,7 +1,7 @@
 {
   "name": "shuriken-chat",
   "productName": "Shuriken Chat",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Visor de escritorio sin bordes para el chat unificado de Social Stream Ninja",
   "author": "Shuriken Chat",
