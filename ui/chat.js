@@ -5,11 +5,9 @@
 
 const MAX_MESSAGES = 200;
 const STICK_PX = 40; // si estás a menos de esto del final, el chat sigue bajando solo
-const STATUS_MS = 6000; // los avisos de conexión desaparecen solos
 
 const list = document.getElementById("messages");
 const empty = document.getElementById("empty");
-const waiting = document.getElementById("waiting");
 let style = {
   darkMode: true, bubble: true, textGlow: false, randomColor: true, fadedTop: true, twoLines: true, showPlatform: true,
   scale: 1, sidePadding: 0, channels: [],
@@ -266,20 +264,10 @@ function resolveAutomod(ev) {
       div.classList.add("gone");
       setTimeout(() => {
         div.remove();
-        renderWaiting();
       }, 1000);
     }, RESOLVED_MS);
   }
   keepAtBottom();
-}
-
-function renderStatus(ev) {
-  const div = el("div", "msg status" + (ev.state === "error" ? " error" : ""), ev.text);
-  setTimeout(() => {
-    div.classList.add("gone");
-    setTimeout(() => div.remove(), 1000);
-  }, STATUS_MS);
-  return div;
 }
 
 // ---------- Lista y autoscroll ----------
@@ -292,32 +280,6 @@ list.addEventListener("scroll", () => {
 
 function keepAtBottom() {
   if (stick && !hoverPause) list.scrollTop = list.scrollHeight;
-}
-
-// ---------- Estado de conexión ----------
-
-const hasMessages = () => !!list.querySelector(".msg:not(.status)");
-
-/** Mientras no hay mensajes, un panel fijo dice qué pasa con cada canal
- *  (si no, una ventana vacía parece que no funciona). */
-function renderWaiting() {
-  const channels = style.channels || [];
-  waiting.hidden = !channels.length || hasMessages();
-  if (waiting.hidden) return;
-  waiting.textContent = "";
-  for (const { platform, channel } of channels) {
-    const st = statuses.get(`${platform}:${channel}`);
-    const state = st ? st.state : "connecting";
-    const line = el("div", "line " + state);
-    const label = channelLabel(platform, channel);
-    const text = {
-      connected: `${label}: conectado. Esperando mensajes…`,
-      connecting: (st && st.text) || `Conectando a ${label}…`,
-      disconnected: `${label}: desconectado, reintentando…`,
-    }[state] || (st && st.text) || label;
-    line.append(el("span", "dot"), el("span", null, text));
-    waiting.append(line);
-  }
 }
 
 // ---------- Indicador de plataformas (arriba a la derecha) ----------
@@ -371,10 +333,7 @@ function renderIndicator() {
 
 function onStatus(ev) {
   statuses.set(`${ev.platform}:${ev.channel}`, ev);
-  // Con mensajes en pantalla, los cambios importantes se avisan dentro del chat.
-  if (hasMessages() && ev.state !== "connecting") append(renderStatus(ev));
-  renderWaiting();
-  renderIndicator();
+  renderIndicator(); // el estado se ve en los iconos de arriba (y su tooltip)
 }
 
 function append(node, ev) {
@@ -385,9 +344,8 @@ function append(node, ev) {
     if (ev.user) node.dataset.user = ev.user.id || "";
   }
   list.append(node);
-  const msgs = list.querySelectorAll(".msg:not(.status)");
+  const msgs = list.querySelectorAll(".msg");
   for (let i = 0; i < msgs.length - MAX_MESSAGES; i++) msgs[i].remove();
-  if (!waiting.hidden) renderWaiting();
   keepAtBottom();
 }
 
@@ -422,9 +380,7 @@ function handle(ev) {
       stick = true;
       break;
     default:
-      return;
   }
-  renderWaiting(); // si se borró todo, vuelve el panel de estado
 }
 
 // ---------- Ajustes de aspecto ----------
@@ -443,7 +399,6 @@ function applyStyle(s) {
   empty.hidden = (style.channels || []).length > 0;
   document.getElementById("emptyWhat").textContent =
     style.needs === "login" ? "e inicia sesión con tu cuenta de Twitch." : "y añade tu canal de Twitch.";
-  renderWaiting();
   renderIndicator();
   keepAtBottom();
 }
@@ -458,8 +413,7 @@ if (api) {
     for (const st of (snap && snap.statuses) || []) statuses.set(`${st.platform}:${st.channel}`, st);
     for (const ev of (snap && snap.events) || []) handle(ev);
     stick = true;
-    renderWaiting();
-    renderIndicator();
+      renderIndicator();
     keepAtBottom();
   });
 }
