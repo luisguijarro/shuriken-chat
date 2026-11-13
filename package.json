@@ -16,7 +16,8 @@
     "build:deb": "node scripts/build.js deb",
     "build:rpm": "node scripts/build.js rpm",
     "build:pacman": "node scripts/build.js pacman",
-    "build:windows": "node scripts/build.js windows"
+    "build:windows": "node scripts/build.js windows",
+    "build:mac": "node scripts/build.js mac"
   },
   "devDependencies": {
     "electron": "^45.3.0",
@@ -129,6 +130,34 @@
     },
     "portable": {
       "artifactName": "shuriken-chat-${version}-portable.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icons/icon.icns",
+      "category": "public.app-category.social-networking",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "darkModeSupport": true,
+      "artifactName": "shuriken-chat-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "Shuriken Chat ${version}"
     }
   },
   "allowScripts": {

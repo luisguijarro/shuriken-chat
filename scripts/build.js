@@ -3,6 +3,7 @@
 //   npm run build                 # Linux (AppImage, .deb, .rpm, .pacman) y Windows (instalador y portable)
 //   npm run build -- deb pacman   # solo los formatos indicados
 //   npm run build -- windows      # solo Windows
+//   npm run build -- mac          # solo macOS (.dmg y .zip; SOLO en un Mac: en Linux se hace en GitHub Actions)
 //
 // - Funciona también en la terminal de VS Code (quita ELECTRON_RUN_AS_NODE).
 // - Limpia dist/ antes de empezar.
@@ -26,8 +27,9 @@ const FORMATS = {
   rpm: { os: "linux", targets: ["rpm"] },
   pacman: { os: "linux", targets: ["pacman"] },
   windows: { os: "win", targets: ["nsis", "portable"] },
+  mac: { os: "mac", targets: ["dmg", "zip"] },
 };
-const EXT = /\.(AppImage|deb|rpm|pacman|exe)$/;
+const EXT = /\.(AppImage|deb|rpm|pacman|exe|dmg|zip)$/;
 
 const bold = (s) => (process.stdout.isTTY ? `\x1b[1m${s}\x1b[0m` : s);
 const fail = (msg) => {
@@ -50,6 +52,11 @@ if (names.includes("rpm") && !hasCommand("rpmbuild")) {
 if (names.includes("windows") && process.platform !== "win32" && !hasCommand("wine")) {
   console.warn("⚠ Falta wine: se salta Windows (instálalo con: sudo pacman -S wine).");
   names = names.filter((n) => n !== "windows");
+}
+if (names.includes("mac") && process.platform !== "darwin") {
+  // La firma de Apple (aunque sea "ad hoc") solo se puede hacer en un Mac.
+  if (asked.includes("mac")) console.warn("⚠ macOS solo se puede construir en un Mac: se hace en GitHub Actions (.github/workflows/macos.yml).");
+  names = names.filter((n) => n !== "mac");
 }
 if (!names.length) fail("No queda ningún formato que construir.");
 // Objetivos agrupados por sistema: una llamada a electron-builder por sistema.

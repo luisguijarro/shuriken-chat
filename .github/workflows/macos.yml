@@ -1,0 +1,83 @@
+# Shuriken Chat: construcción y prueba en macOS (en los Mac de GitHub).
+# - Rama "macos": construye, prueba el arranque y publica los resultados en la release
+#   de pruebas "pruebas-macos" (descargable sin cuenta, para revisarlos desde fuera).
+# - Etiquetas vX.Y.Z: construye y sube los .dmg y .zip a la release de esa versión.
+name: macOS
+
+on:
+  push:
+    branches: [macos]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Dependencias
+        run: npm ci
+
+      - name: Tests
+        run: npm test 2>&1 | tee tests.log
+
+      - name: Construir .dmg y .zip (Apple Silicon e Intel)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false" # sin certificado de Apple: firma "ad hoc"
+        run: node scripts/build.js mac 2>&1 | tee build.log
+
+      - name: Comprobar la firma
+        run: |
+          for app in dist/mac*/"Shuriken Chat.app"; do
+            echo "== $app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            codesign -dv "$app" 2>&1 | grep -E "Signature|Identifier|Format"
+          done 2>&1 | tee firma.log
+
+      - name: Prueba de arranque (Apple Silicon)
+        run: |
+          CFG="$HOME/Library/Application Support/shuriken-chat"
+          mkdir -p "$CFG"
+          echo '{"sources":{"mode":"native","twitch":{"useAccount":false,"channels":["xqc"]},"youtube":{"channels":["@lofigirl"]}},"window":{"x":200,"y":120,"width":420,"height":560}}' > "$CFG/config.json"
+          SHURIKEN_DEBUG=1 "dist/mac-arm64/Shuriken Chat.app/Contents/MacOS/Shuriken Chat" > arranque.log 2>&1 &
+          sleep 45
+          screencapture -x captura-macos.png || true
+          pkill -f "Shuriken Chat.app" || true
+          if grep -q "diagnóstico" arranque.log; then
+            echo "Arranque correcto"; grep -E "diagnóstico|\[shuriken\]" arranque.log | head -20
+          else
+            echo "La app no llegó a cargar el chat"; tail -60 arranque.log; exit 1
+          fi
+
+      - name: Publicar resultados de prueba (rama macos)
+        if: always() && !startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=pruebas-macos
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          FILES=$(ls dist/*.dmg tests.log build.log firma.log arranque.log captura-macos.png 2>/dev/null || true)
+          gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
+            --title "Pruebas de macOS (${GITHUB_REF_NAME})" \
+            --notes "Generado automáticamente por GitHub Actions para el commit ${GITHUB_SHA}. Solo para pruebas." \
+            $FILES
+
+      - name: Publicar en la release de la versión (etiquetas)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Shuriken Chat ${TAG#v}" \
+            --notes "Paquetes para macOS. Las demás plataformas están en el repositorio principal."
+          (cd dist && shasum -a 256 *.dmg *.zip > SHA256SUMS-macos.txt)
+          gh release upload "$TAG" dist/*.dmg dist/*.zip dist/SHA256SUMS-macos.txt --clobber
