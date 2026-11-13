@@ -206,6 +206,12 @@ async function refreshObs() {
     return;
   }
   document.body.classList.toggle("obs-off", !info.enabled);
+  // Puede haberse cambiado con el botón del chat o el menú.
+  if (document.activeElement !== $("obsEnabled")) $("obsEnabled").checked = info.enabled;
+  try {
+    const w = await invoke("window_state");
+    if (document.activeElement !== $("alwaysOnTop")) $("alwaysOnTop").checked = w.alwaysOnTop;
+  } catch {}
   if (document.activeElement !== $("obsUrl")) $("obsUrl").value = info.url || "";
   $("obsSize").textContent = `Tamaño de la ventana del chat: ${info.width} × ${info.height}. En OBS se escala sin deformarse a cualquier tamaño de fuente.`;
   renderObsScale(info.screen);
@@ -536,6 +542,11 @@ async function load() {
 
 document.addEventListener("input", (e) => {
   if (["importUrl", "twitchInput", "kickInput", "youtubeInput"].includes(e.target.id)) return;
+  if (e.target.id === "alwaysOnTop") {
+    // No forma parte de los ajustes a guardar: se aplica al momento.
+    invoke("set_always_on_top", { value: e.target.checked }).catch(() => {});
+    return;
+  }
   if (e.target.name === "mode") setMode(getMode());
   if (e.target.name === "twitchMode") setTwitchMode(getTwitchMode());
   if (e.target.id === "obsEnabled") document.body.classList.toggle("obs-off", !e.target.checked);

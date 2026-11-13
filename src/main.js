@@ -155,17 +155,21 @@ function layoutChat() {
 }
 
 function pushPageState() {
-  const locked = cfg.window.locked;
-  // Los bordes de la ventana los gestiona el marco; la vista del chat solo si
-  // llega casi hasta el borde (margen + borde menores que la zona sensible).
-  const chatEdges = config.frameLayout(cfg.appearance).inset < EDGE;
-  frameWc()?.send("shuriken:state", { locked, edges: true });
-  chatWc()?.send("shuriken:state", { locked, edges: chatEdges });
+  frameWc()?.send("shuriken:state", pageState(frameWc()));
+  chatWc()?.send("shuriken:state", pageState(chatWc()));
 }
 
 function pageState(wc) {
-  if (wc === frameWc()) return { locked: cfg.window.locked, edges: true };
-  return { locked: cfg.window.locked, edges: config.frameLayout(cfg.appearance).inset < EDGE };
+  const locked = cfg.window.locked;
+  if (wc === frameWc()) return { locked, edges: true };
+  return {
+    locked,
+    // Los bordes de la ventana los gestiona el marco; la vista del chat solo si
+    // llega casi hasta el borde (margen + borde menores que la zona sensible).
+    edges: config.frameLayout(cfg.appearance).inset < EDGE,
+    // Botones de arriba a la izquierda (solo en la vista del chat; con "atravesar clics" no se ven).
+    toolbar: clickThrough ? null : { alwaysOnTop: cfg.window.alwaysOnTop, obs: cfg.obs.enabled },
+  };
 }
 
 /** Qué se carga en la vista del chat: nuestro chat propio o el dock de SSN. */
@@ -326,12 +330,30 @@ function setClickThrough(v) {
   clickThrough = v;
   if (alive(chatWin)) chatWin.setIgnoreMouseEvents(v);
   buildTray();
+  pushPageState(); // con "atravesar clics" no se muestran los botones del chat
 }
 
-function toggleAlwaysOnTop() {
-  cfg.window.alwaysOnTop = !cfg.window.alwaysOnTop;
+function setAlwaysOnTop(v) {
+  cfg.window.alwaysOnTop = !!v;
   if (alive(chatWin)) chatWin.setAlwaysOnTop(cfg.window.alwaysOnTop);
   persistWindow();
+  pushPageState();
+}
+
+const toggleAlwaysOnTop = () => setAlwaysOnTop(!cfg.window.alwaysOnTop);
+
+/** Activa o para el chat para OBS (desde el botón, el menú o Configuración). */
+async function setObsEnabled(v) {
+  cfg.obs.enabled = !!v;
+  try {
+    const disk = config.load();
+    disk.obs.enabled = cfg.obs.enabled;
+    config.save(disk);
+  } catch (e) {
+    console.error("[shuriken] no se pudo guardar OBS:", e);
+  }
+  await syncObsServer();
+  pushPageState();
 }
 
 function toggleLocked() {
@@ -375,6 +397,7 @@ function contextMenu() {
     },
     { type: "separator" },
     { label: "Siempre visible", type: "checkbox", checked: cfg.window.alwaysOnTop, click: toggleAlwaysOnTop },
+    { label: "Chat para OBS", type: "checkbox", checked: cfg.obs.enabled, click: () => setObsEnabled(!cfg.obs.enabled) },
     { label: "Bloquear posición y tamaño", type: "checkbox", checked: cfg.window.locked, click: toggleLocked },
     {
       label: "Atravesar clics (se desactiva desde la bandeja)",
@@ -661,6 +684,12 @@ function registerIpc() {
   ipcMain.on("shuriken:drag-end", (e) => {
     if (fromChat(e)) stopDrag();
   });
+  // Botones de la ventana del chat (arriba a la izquierda).
+  ipcMain.on("shuriken:toggle", (e, what) => {
+    if (!fromChat(e) || e.senderFrame !== e.sender.mainFrame) return;
+    if (what === "alwaysOnTop") toggleAlwaysOnTop();
+    else if (what === "obs") setObsEnabled(!cfg.obs.enabled);
+  });
   ipcMain.handle("shuriken:page-state", (e) => (fromChat(e) ? pageState(e.sender) : null));
   // Aprobar/denegar un mensaje del AutoMod: solo desde NUESTRA página del chat (nunca desde SSN).
   ipcMain.handle("shuriken:automod", (e, { id, allow } = {}) => {
@@ -725,6 +754,12 @@ function registerIpc() {
   });
   // ---- OBS ----
   settingsCmd("obs_info", () => obsInfo());
+  // Opciones de la ventana que se aplican al momento (como el menú y los botones del chat).
+  settingsCmd("window_state", () => ({ alwaysOnTop: cfg.window.alwaysOnTop }));
+  settingsCmd("set_always_on_top", ({ value }) => {
+    setAlwaysOnTop(value);
+    return { alwaysOnTop: cfg.window.alwaysOnTop };
+  });
   // Nueva clave: la URL anterior deja de funcionar (por si se ha filtrado).
   settingsCmd("obs_new_key", async () => {
     cfg.obs.key = newKey();
