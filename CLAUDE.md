@@ -19,6 +19,13 @@ Todo se muestra en una ventana **sin bordes, transparente, redimensionable, arra
 - El remoto `origin` es un Gitea/Forgejo propio (git.dark-pi.net).
 - **Releases**: adjuntar AppImage, `.deb`, `.rpm` y `.pacman` + `SHA256SUMS.txt` (`fj release create --tag vX --attach …`).
 
+## Windows
+
+- Rama `windows` (v0.7.0). Paquetes: instalador NSIS en español (`-setup.exe`: `oneClick:false`, elegir carpeta, accesos directos, por usuario) y portable (`-portable.exe`), x64. Se construyen **desde Linux con wine** (`npm run build -- windows`; `npm run build` sin argumentos hace Linux + Windows).
+- App: `app.setAppUserModelId("dev.shurikenchat.desktop")` en win32; bandeja con `icon.ico`; "Wayland nativo" solo visible en Linux (`settingsView().platform` → clase `not-linux`). Config en `%APPDATA%\shuriken-chat\`. Sin firma de código: SmartScreen avisa la primera vez (documentado en el README).
+- **VM de pruebas** (el usuario no tiene Windows): libvirt `qemu:///system`, dominio `ShurikenWin11` (Windows 11 Enterprise **Evaluación**, 90 días, legal; ISO en `~/Descargas`). UEFI + TPM (swtpm), SATA + e1000e, 8 vCPU / 8 GB / 80 GB. Instalación desatendida con `autounattend.xml` + `setup.ps1` (al crearla con `virt-install --wait 0`, la primera fase termina **apagando** la VM: hay que hacer `virsh start` sin pulsar teclas para que siga desde el disco; después reinicia sola) (ISO `~/Descargas/shuriken-unattend.iso`). Usuario local `shuriken` (admin, inicio automático); contraseña y clave SSH en `~/.local/share/shuriken-win-vm/` (`password.txt`, `id_ed25519`). OpenSSH Server activo con PowerShell por defecto. IP: `virsh -c qemu:///system domifaddr ShurikenWin11 --source lease` (192.168.122.61). **SSH: `ssh -F ~/.local/share/shuriken-win-vm/ssh_config shuriken-win`** (y `scp -F … shuriken-win:C:/shuriken/`); en zsh no meter las opciones de ssh en una variable (no se separan). Instalación silenciosa: `setup.exe /S`. Lanzar con ventana: tarea programada `ShurikenRun` (`New-ScheduledTaskPrincipal -LogonType Interactive` + `Start-ScheduledTask`). Para depurar: `C:\shuriken\run-debug.cmd` (SHURIKEN_DEBUG=1, salida en `C:\shuriken\salida.txt`). El **primer arranque tras instalar** puede tardar >30 s (Defender analiza los ficheros). Capturas: `virsh screenshot`. Para lanzar apps con ventana desde SSH hay que hacerlo en la sesión interactiva (tarea programada con `/IT`), no directamente (la sesión SSH no tiene escritorio).
+- **macOS en VM: NO** (la licencia de Apple solo permite macOS en hardware de Apple). Vía prevista: espejo en GitHub + GitHub Actions con runners macOS.
+
 ## Empaquetado
 
 - **Un solo comando: `npm run build`** (`scripts/build.js`): quita `ELECTRON_RUN_AS_NODE`, limpia `dist/`, lanza electron-builder (`linux.target` = AppImage, deb, rpm, pacman), genera `dist/SHA256SUMS.txt` y muestra un resumen. Formatos sueltos: `npm run build -- deb pacman` (o `build:<formato>`). Si falta `rpmbuild` (`rpm-tools` en Arch), salta el .rpm avisando. Ya no hace falta `env -u ELECTRON_RUN_AS_NODE` para construir.
@@ -170,6 +177,9 @@ npm run build -- appimage     # solo AppImage (o deb, rpm, pacman)
 Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm start`.
 
 ## Estado actual
+
+- 🚧 Rama `windows` (v0.7.0): instalador + portable desde Linux (wine). Probado en la VM de Windows 11: instalación silenciosa (menú Inicio, escritorio, desinstalador, datos del .exe), arranque con Twitch + Kick + YouTube (transparencia, marco, iconos, insignias, RTL), servidor de OBS (solo 127.0.0.1, clave). Pendiente: pruebas con ratón (arrastrar, menú, Configuración, bandeja, botones), PR y release.
+- ✅ v0.6.1 (paquetes Linux) fusionada y publicada.
 
 - 🚧 Rama `packaging` (v0.6.1): AppImage + .deb + .rpm + .pacman. Revisados por dentro los cuatro; el .pacman instalado y probado por el usuario (arranca). Pendiente: PR y release con los cuatro paquetes. Flathub aparcado (ver "Empaquetado").
 - ✅ v0.6.0 (OBS) fusionada y publicada.
