@@ -55,6 +55,18 @@ app.setPath("userData", config.configDir());
  * software), así que hay que pasar `--ozone-platform=x11` en la línea de
  * comandos: si no viene, nos relanzamos con él y salimos sin abrir nada.
  */
+/**
+ * Mensajes internos de Chromium: solo los fatales, salvo con SHURIKEN_DEBUG=1.
+ * (P. ej. "GetVSyncParametersIfAvailable() failed": XWayland no da la sincronía de la
+ * pantalla, Chromium usa 60 Hz y sigue sin problema, pero lo registra como ERROR.)
+ * Como --ozone-platform, solo funciona en la LÍNEA DE COMANDOS: con appendSwitch llega
+ * tarde (comprobado). Se añade al relanzar con X11; `npm start` ya lo pasa.
+ */
+function quietArgs() {
+  if (process.env.SHURIKEN_DEBUG || app.commandLine.hasSwitch("log-level")) return [];
+  return ["--log-level=3"];
+}
+
 function relaunchWithX11IfNeeded() {
   if (process.platform !== "linux" || cfg.system.nativeWayland) return false;
   // Ojo: Electron rellena él mismo el valor ("wayland"), así que se mira el valor.
@@ -62,7 +74,7 @@ function relaunchWithX11IfNeeded() {
   if (process.env.SHURIKEN_RELAUNCHED) return false; // evita bucles
   // En un AppImage hay que relanzar el propio .AppImage (su montaje desaparece al salir).
   const exe = process.env.APPIMAGE || process.execPath;
-  const args = [...process.argv.slice(1), "--ozone-platform=x11"];
+  const args = [...process.argv.slice(1), "--ozone-platform=x11", ...quietArgs()];
   try {
     require("child_process")
       .spawn(exe, args, { detached: true, stdio: "inherit", env: { ...process.env, SHURIKEN_RELAUNCHED: "1" } })
@@ -74,10 +86,6 @@ function relaunchWithX11IfNeeded() {
   }
 }
 
-// Mensajes internos de Chromium: solo los fatales, salvo con SHURIKEN_DEBUG=1.
-// (P. ej. "GetVSyncParametersIfAvailable() failed": XWayland no da la sincronía de la
-// pantalla, Chromium usa 60 Hz y sigue sin problema, pero lo registra como ERROR.)
-if (!process.env.SHURIKEN_DEBUG) app.commandLine.appendSwitch("log-level", "3");
 
 const relaunching = relaunchWithX11IfNeeded();
 if (cfg.system.compatRendering) app.disableHardwareAcceleration();
