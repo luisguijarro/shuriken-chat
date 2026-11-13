@@ -1,7 +1,8 @@
 // Configuración persistente de Shuriken Chat.
 //
 // Se guarda en ~/.config/shuriken-chat/config.json (Linux)
-// o %APPDATA%\shuriken-chat\config.json (Windows).
+// %APPDATA%\shuriken-chat\config.json (Windows)
+// o ~/Library/Application Support/shuriken-chat/config.json (macOS).
 "use strict";
 
 const fs = require("fs");
@@ -102,9 +103,12 @@ const DEFAULT_WINDOW = {
 };
 
 function configDir() {
+  const home = process.env.HOME || os.homedir();
   const base = process.platform === "win32"
     ? process.env.APPDATA
-    : process.env.XDG_CONFIG_HOME || (process.env.HOME && path.join(process.env.HOME, ".config"));
+    : process.platform === "darwin"
+      ? path.join(home, "Library", "Application Support") // lo estándar en macOS
+      : process.env.XDG_CONFIG_HOME || (home && path.join(home, ".config"));
   return path.join(base || os.homedir() || ".", "shuriken-chat");
 }
 

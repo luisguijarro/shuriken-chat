@@ -349,9 +349,22 @@ function setClickThrough(v) {
   pushPageState(); // con "atravesar clics" no se muestran los botones del chat
 }
 
+/** "Siempre visible". En macOS, además, por encima de apps a pantalla completa y en
+ *  todos los escritorios (si no, al poner un juego a pantalla completa desaparece). */
+function applyAlwaysOnTop() {
+  if (!alive(chatWin)) return;
+  const on = cfg.window.alwaysOnTop;
+  if (process.platform === "darwin") {
+    chatWin.setAlwaysOnTop(on, "floating");
+    chatWin.setVisibleOnAllWorkspaces(on, { visibleOnFullScreen: true });
+  } else {
+    chatWin.setAlwaysOnTop(on);
+  }
+}
+
 function setAlwaysOnTop(v) {
   cfg.window.alwaysOnTop = !!v;
-  if (alive(chatWin)) chatWin.setAlwaysOnTop(cfg.window.alwaysOnTop);
+  applyAlwaysOnTop();
   persistWindow();
   pushPageState();
 }
@@ -442,8 +455,9 @@ function contextMenu() {
 function buildTray() {
   if (!tray) {
     try {
-      // En Windows, el .ico (varios tamaños) se ve nítido en la bandeja.
-      const trayIcon = process.platform === "win32" ? "icon.ico" : "64x64.png";
+      // Windows: el .ico (varios tamaños) se ve nítido en la bandeja.
+      // macOS: plantilla monocroma ("Template": el sistema la colorea según el tema; usa @2x solo).
+      const trayIcon = { win32: "icon.ico", darwin: "trayTemplate.png" }[process.platform] || "64x64.png";
       tray = new Tray(nativeImage.createFromPath(path.join(ICONS, trayIcon)));
       tray.setToolTip("Shuriken Chat");
       tray.on("click", toggleVisible);
@@ -680,6 +694,7 @@ function createChatWindow() {
     app.quit();
   });
 
+  applyAlwaysOnTop(); // en macOS, también sobre pantalla completa y en todos los escritorios
   loadChat();
 }
 
@@ -816,7 +831,49 @@ function registerIpc() {
 // Arranque
 // ---------------------------------------------------------------------------
 
+/** macOS: menú de la aplicación en español. Sin el menú Editar no funcionan
+ *  Cmd+C / Cmd+V en los campos de Configuración. */
+function buildMacMenu() {
+  if (process.platform !== "darwin") return;
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    {
+      label: "Shuriken Chat",
+      submenu: [
+        { label: "Acerca de Shuriken Chat", role: "about" },
+        { type: "separator" },
+        { label: "Configuración…", accelerator: "Cmd+,", click: openSettings },
+        { type: "separator" },
+        { label: "Ocultar Shuriken Chat", role: "hide" },
+        { label: "Ocultar otros", role: "hideOthers" },
+        { label: "Mostrar todo", role: "unhide" },
+        { type: "separator" },
+        { label: "Salir de Shuriken Chat", accelerator: "Cmd+Q", click: quit },
+      ],
+    },
+    {
+      label: "Editar",
+      submenu: [
+        { label: "Deshacer", role: "undo" },
+        { label: "Rehacer", role: "redo" },
+        { type: "separator" },
+        { label: "Cortar", role: "cut" },
+        { label: "Copiar", role: "copy" },
+        { label: "Pegar", role: "paste" },
+        { label: "Seleccionar todo", role: "selectAll" },
+      ],
+    },
+    {
+      label: "Ventana",
+      submenu: [
+        { label: "Minimizar", role: "minimize" },
+        { label: "Cerrar", role: "close" },
+      ],
+    },
+  ]));
+}
+
 function start() {
+  buildMacMenu();
   twitchAuth = new TwitchAuth(config.configDir(), safeStorage);
   sources.setAuth(twitchAuth);
   lockDownPermissions();
