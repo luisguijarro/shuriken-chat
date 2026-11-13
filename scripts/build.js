@@ -1,11 +1,13 @@
 // Construye los paquetes de Linux con un solo comando: `npm run build`.
 //
-//   npm run build                 # AppImage, .deb, .rpm y .pacman
+//   npm run build                 # Linux (AppImage, .deb, .rpm, .pacman) y Windows (instalador y portable)
 //   npm run build -- deb pacman   # solo los formatos indicados
+//   npm run build -- windows      # solo Windows
 //
 // - Funciona también en la terminal de VS Code (quita ELECTRON_RUN_AS_NODE).
 // - Limpia dist/ antes de empezar.
 // - Si falta rpmbuild, salta el .rpm avisando (se instala con: sudo pacman -S rpm-tools).
+// - Si falta wine, salta Windows avisando (desde Linux hace falta para preparar el .exe).
 // - Genera dist/SHA256SUMS.txt y muestra un resumen al terminar.
 "use strict";
 
@@ -17,8 +19,15 @@ const path = require("path");
 const ROOT = path.join(__dirname, "..");
 const DIST = path.join(ROOT, "dist");
 const BUILDER = path.join(ROOT, "node_modules", ".bin", "electron-builder");
-const FORMATS = { appimage: "AppImage", deb: "deb", rpm: "rpm", pacman: "pacman" };
-const EXT = /\.(AppImage|deb|rpm|pacman)$/;
+// formato -> sistema y objetivos de electron-builder
+const FORMATS = {
+  appimage: { os: "linux", targets: ["AppImage"] },
+  deb: { os: "linux", targets: ["deb"] },
+  rpm: { os: "linux", targets: ["rpm"] },
+  pacman: { os: "linux", targets: ["pacman"] },
+  windows: { os: "win", targets: ["nsis", "portable"] },
+};
+const EXT = /\.(AppImage|deb|rpm|pacman|exe)$/;
 
 const bold = (s) => (process.stdout.isTTY ? `\x1b[1m${s}\x1b[0m` : s);
 const fail = (msg) => {
@@ -31,25 +40,34 @@ const asked = process.argv.slice(2).map((a) => a.toLowerCase());
 for (const a of asked) {
   if (!FORMATS[a]) fail(`Formato desconocido: "${a}". Usa: ${Object.keys(FORMATS).join(", ")}.`);
 }
-let targets = (asked.length ? asked : Object.keys(FORMATS)).map((a) => FORMATS[a]);
+let names = asked.length ? asked : Object.keys(FORMATS);
 
 const hasCommand = (cmd) => spawnSync("sh", ["-c", `command -v ${cmd}`], { stdio: "ignore" }).status === 0;
-if (targets.includes("rpm") && !hasCommand("rpmbuild")) {
+if (names.includes("rpm") && !hasCommand("rpmbuild")) {
   console.warn("⚠ Falta rpmbuild: se salta el .rpm (instálalo con: sudo pacman -S rpm-tools).");
-  targets = targets.filter((t) => t !== "rpm");
+  names = names.filter((n) => n !== "rpm");
 }
-if (!targets.length) fail("No queda ningún formato que construir.");
+if (names.includes("windows") && process.platform !== "win32" && !hasCommand("wine")) {
+  console.warn("⚠ Falta wine: se salta Windows (instálalo con: sudo pacman -S wine).");
+  names = names.filter((n) => n !== "windows");
+}
+if (!names.length) fail("No queda ningún formato que construir.");
+// Objetivos agrupados por sistema: una llamada a electron-builder por sistema.
+const bySystem = {};
+for (const n of names) (bySystem[FORMATS[n].os] ||= []).push(...FORMATS[n].targets);
 if (!fs.existsSync(BUILDER)) fail("No está electron-builder: ejecuta antes `npm install`.");
 
 const { version } = require(path.join(ROOT, "package.json"));
-console.log(bold(`\nShuriken Chat ${version} → ${targets.join(", ")}\n`));
+console.log(bold(`\nShuriken Chat ${version} → ${names.join(", ")}\n`));
 
 // ---------- Construcción ----------
 fs.rmSync(DIST, { recursive: true, force: true });
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE; // la terminal de VS Code lo define y rompe Electron
-const res = spawnSync(BUILDER, ["--linux", ...targets], { cwd: ROOT, env, stdio: "inherit" });
-if (res.status !== 0) fail("electron-builder ha fallado (mira los mensajes de arriba).");
+for (const [os, targets] of Object.entries(bySystem)) {
+  const res = spawnSync(BUILDER, [`--${os}`, ...targets], { cwd: ROOT, env, stdio: "inherit" });
+  if (res.status !== 0) fail(`electron-builder ha fallado con ${os} (mira los mensajes de arriba).`);
+}
 
 // ---------- Sumas y resumen ----------
 const files = fs.readdirSync(DIST).filter((f) => EXT.test(f)).sort();

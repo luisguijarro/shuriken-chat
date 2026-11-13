@@ -1,7 +1,7 @@
 {
   "name": "shuriken-chat",
   "productName": "Shuriken Chat",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "private": true,
   "description": "Chat de Twitch, Kick y YouTube flotando en tu escritorio y en OBS",
   "author": "Shuriken Chat",
@@ -15,7 +15,8 @@
     "build:win": "electron-builder --win",
     "build:deb": "node scripts/build.js deb",
     "build:rpm": "node scripts/build.js rpm",
-    "build:pacman": "node scripts/build.js pacman"
+    "build:pacman": "node scripts/build.js pacman",
+    "build:windows": "node scripts/build.js windows"
   },
   "devDependencies": {
     "electron": "^45.3.0",
@@ -56,9 +57,21 @@
     },
     "win": {
       "target": [
-        "nsis"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
-      "icon": "assets/icons/icon.ico"
+      "icon": "assets/icons/icon.ico",
+      "executableName": "shuriken-chat"
     },
     "artifactName": "shuriken-chat-${version}-${arch}.${ext}",
     "pacman": {
@@ -100,6 +113,22 @@
         "xdg-utils"
       ],
       "packageCategory": "Applications/Internet"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Shuriken Chat",
+      "installerLanguages": [
+        "es_ES"
+      ],
+      "language": "3082",
+      "artifactName": "shuriken-chat-${version}-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "shuriken-chat-${version}-portable.${ext}"
     }
   },
   "allowScripts": {

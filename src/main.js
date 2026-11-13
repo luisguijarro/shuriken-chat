@@ -90,6 +90,9 @@ function relaunchWithX11IfNeeded() {
 const relaunching = relaunchWithX11IfNeeded();
 if (cfg.system.compatRendering) app.disableHardwareAcceleration();
 
+// Windows: identificador de la app (agrupa bien en la barra de tareas; el mismo que el instalador).
+if (process.platform === "win32") app.setAppUserModelId("dev.shurikenchat.desktop");
+
 if (relaunching) {
   app.exit(0);
 } else if (!app.requestSingleInstanceLock()) {
@@ -124,7 +127,7 @@ function persistWindowSoon() {
 }
 
 function settingsView() {
-  return { ...config.userSettings(cfg), url: config.chatUrl(cfg.appearance) };
+  return { ...config.userSettings(cfg), url: config.chatUrl(cfg.appearance), platform: process.platform };
 }
 
 // ---------------------------------------------------------------------------
@@ -439,7 +442,9 @@ function contextMenu() {
 function buildTray() {
   if (!tray) {
     try {
-      tray = new Tray(nativeImage.createFromPath(path.join(ICONS, "64x64.png")));
+      // En Windows, el .ico (varios tamaños) se ve nítido en la bandeja.
+      const trayIcon = process.platform === "win32" ? "icon.ico" : "64x64.png";
+      tray = new Tray(nativeImage.createFromPath(path.join(ICONS, trayIcon)));
       tray.setToolTip("Shuriken Chat");
       tray.on("click", toggleVisible);
     } catch (e) {

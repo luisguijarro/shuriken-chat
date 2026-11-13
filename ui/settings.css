@@ -177,3 +177,4 @@ body.obs-off .obs-on { display: none; }
 .scale-table tr.current td { color: #2ecc71; font-weight: 600; }
 #obsScaleBox { margin-top: 8px; }
 #obsScaleBox summary { cursor: pointer; font-size: 13px; }
+body.not-linux .linux-only { display: none !important; }

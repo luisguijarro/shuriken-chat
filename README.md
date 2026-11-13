@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <b>Linux</b> (cualquier distro · X11 y Wayland) · AppImage, .deb, .rpm y .pacman · Electron
+  <b>Linux</b> (cualquier distro · X11 y Wayland) · <b>Windows</b> 10/11 · Electron
 </p>
 
 ---
@@ -74,8 +74,12 @@ Descarga el paquete de tu distribución desde *Releases* (cada versión incluye 
 | Fedora | `.rpm` | `sudo dnf install ./shuriken-chat-x.y.z-x86_64.rpm` |
 | openSUSE | `.rpm` | `sudo zypper install ./shuriken-chat-x.y.z-x86_64.rpm` |
 | Cualquier otra | AppImage | `chmod +x shuriken-chat-*.AppImage && ./shuriken-chat-*.AppImage` |
+| **Windows 10/11** | `-setup.exe` | Ejecuta el instalador (puedes elegir la carpeta; crea accesos directos) |
+| **Windows 10/11** | `-portable.exe` | Sin instalar: ejecútalo desde cualquier carpeta o un USB |
 
-Los paquetes nativos añaden **Shuriken Chat** al menú de aplicaciones (*Internet → Chat*) y el comando `shuriken-chat`. El AppImage no necesita instalarse.
+Los paquetes de Linux añaden **Shuriken Chat** al menú de aplicaciones (*Internet → Chat*) y el comando `shuriken-chat`. El AppImage no necesita instalarse.
+
+> **Windows avisa la primera vez** («Windows protegió su PC», de SmartScreen) porque la app no está firmada con un certificado de pago. Pulsa **Más información → Ejecutar de todas formas**. Solo pasa la primera vez.
 
 ## Primeros pasos
 
@@ -280,7 +284,7 @@ rm ~/.config/shuriken-chat/twitch-auth.json
 | Sistema | Carpeta |
 | --- | --- |
 | Linux | `~/.config/shuriken-chat/` (o `$XDG_CONFIG_HOME/shuriken-chat/`) |
-| Windows | `%APPDATA%\shuriken-chat\` |
+| Windows | `%APPDATA%\shuriken-chat\` (p. ej. `C:\Users\<usuario>\AppData\Roaming\shuriken-chat\`) |
 
 - `config.json`: todos los ajustes, en JSON legible.
 - `twitch-auth.json`: la sesión de Twitch, **cifrada** (solo si inicias sesión).
@@ -322,11 +326,11 @@ npm install
 npm start                       # ejecutar
 SHURIKEN_DEBUG=1 npm start      # con la consola de la página, un diagnóstico y los avisos de Chromium
 npm test                        # tests (node --test)
-npm run build                   # los 4 paquetes en dist/ + SHA256SUMS.txt
-npm run build -- deb pacman     # solo los formatos indicados (appimage, deb, rpm, pacman)
+npm run build                   # todos los paquetes (Linux y Windows) en dist/ + SHA256SUMS.txt
+npm run build -- deb pacman     # solo los formatos indicados (appimage, deb, rpm, pacman, windows)
 ```
 
-`npm run build` limpia `dist/`, genera los paquetes con electron-builder, calcula `SHA256SUMS.txt` y muestra un resumen. Funciona también en la terminal de VS Code. El `.rpm` necesita `rpmbuild` (`sudo pacman -S rpm-tools` en Arch); si no está, se salta avisando.
+`npm run build` limpia `dist/`, genera los paquetes con electron-builder, calcula `SHA256SUMS.txt` y muestra un resumen. Funciona también en la terminal de VS Code. Desde Linux, el `.rpm` necesita `rpmbuild` (`sudo pacman -S rpm-tools`) y los de Windows, `wine` (`sudo pacman -S wine`); si falta alguno, se salta avisando.
 
 Para probar sin tocar tu configuración: `XDG_CONFIG_HOME=/tmp/prueba npm start`.
 
@@ -390,7 +394,8 @@ shuriken-chat/
 - [ ] Twitch con cuenta: avisos de follows y canjes de puntos del canal
 - [ ] Opción de mostrar «‹mensaje eliminado›» en vez de ocultar los mensajes borrados
 - [ ] Perfiles de apariencia (p. ej. «Escritorio», «Compacto»)
-- [ ] Soporte probado en Windows
+- [x] Windows (instalador y portable)
+- [ ] macOS
 
 ## Créditos
 

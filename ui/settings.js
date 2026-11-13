@@ -364,6 +364,8 @@ function fill(view) {
   const a = view.appearance;
   const s = view.system;
   setMode(view.sources.mode);
+  // Opciones que solo tienen sentido en Linux (Wayland/X11).
+  document.body.classList.toggle("not-linux", view.platform && view.platform !== "linux");
   setTwitchMode(view.sources.twitch.useAccount ? "account" : "anonymous");
   twitchList.set(view.sources.twitch.channels);
   kickList.set(view.sources.kick.channels);
