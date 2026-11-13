@@ -252,3 +252,57 @@ html.bubble .msg.automod { background: color-mix(in srgb, var(--am) 16%, var(--b
 .msg.automod.denied { --am: #ff5252; }
 .msg.automod.expired { --am: #888; }
 .msg.automod.gone { opacity: 0; }
+
+/* ---------- Indicador de plataformas (arriba a la derecha) ---------- */
+
+#platforms {
+  position: fixed;
+  top: 0.35em;
+  right: calc(var(--side) + 0.35em);
+  display: flex;
+  gap: 0.4em;
+  z-index: 5;
+  font-size: var(--font-size);
+  line-height: 1;
+}
+.pf { position: relative; display: inline-flex; }
+/* Como mucho, la altura de una letra del chat (crece y decrece con la escala del texto). */
+.pf > img { height: 0.75em; width: 0.75em; display: block; }
+.pf-dot {
+  width: 0.36em;
+  height: 0.36em;
+  border-radius: 50%;
+  background: #2ecc71; /* conectado */
+  box-shadow: 0 0 0 0.08em rgba(0, 0, 0, 0.55);
+  flex: none;
+}
+.pf > .pf-dot { position: absolute; right: -0.12em; bottom: -0.12em; }
+.connecting > .pf-dot, .pf-line.connecting > .pf-dot,
+.disconnected > .pf-dot, .pf-line.disconnected > .pf-dot { background: #e5b400; }
+.pf.connecting > .pf-dot, .pf.disconnected > .pf-dot { animation: pulse 1s ease-in-out infinite alternate; }
+.offline > .pf-dot, .pf-line.offline > .pf-dot { background: #9a9aa6; }
+.error > .pf-dot, .pf-line.error > .pf-dot { background: #ff5252; }
+
+/* Tooltip con el estado de cada canal (al pasar el ratón). */
+.pf-tip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.45em);
+  right: 0;
+  width: max-content;
+  max-width: 18em;
+  padding: 0.45em 0.6em;
+  border-radius: 0.5em;
+  background: rgba(16, 16, 22, 0.95);
+  color: #eee;
+  font-size: 0.7em;
+  line-height: 1.35;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  flex-direction: column;
+  gap: 0.25em;
+  text-shadow: none;
+}
+.pf:hover > .pf-tip { display: flex; }
+.pf-tip b { font-weight: 700; }
+.pf-line { display: flex; align-items: center; gap: 0.45em; }
+.pf-line.error { color: #ff9b9b; }

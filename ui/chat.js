@@ -320,11 +320,61 @@ function renderWaiting() {
   }
 }
 
+// ---------- Indicador de plataformas (arriba a la derecha) ----------
+
+const indicator = document.getElementById("platforms");
+// Gravedad de cada estado: el punto de la plataforma muestra el peor de sus canales.
+const SEVERITY = { error: 4, disconnected: 3, connecting: 2, offline: 1, connected: 0 };
+const STATE_TEXT = {
+  connected: "Conectado",
+  connecting: "Conectando…",
+  disconnected: "Desconectado, reintentando…",
+  offline: "Sin directo",
+  error: "Error",
+};
+
+/** Un icono por plataforma con canales configurados, con un punto de color y un tooltip. */
+function renderIndicator() {
+  indicator.textContent = "";
+  const byPlatform = new Map();
+  for (const { platform, channel } of style.channels || []) {
+    if (!PLATFORMS[platform]) continue;
+    if (!byPlatform.has(platform)) byPlatform.set(platform, []);
+    byPlatform.get(platform).push(channel);
+  }
+  for (const [platform, channels] of byPlatform) {
+    let worst = "connected";
+    const lines = [];
+    for (const channel of channels) {
+      const st = statuses.get(`${platform}:${channel}`);
+      const state = st && SEVERITY[st.state] !== undefined ? st.state : "connecting";
+      if (SEVERITY[state] > SEVERITY[worst]) worst = state;
+      lines.push({ state, text: (st && st.text) || `${channelLabel(platform, channel)}: ${STATE_TEXT[state]}` });
+    }
+    const item = el("span", `pf ${worst}`);
+    item.dataset.platform = platform;
+    const img = el("img");
+    img.src = `platforms/${platform}.svg`;
+    img.alt = PLATFORMS[platform];
+    item.append(img, el("span", "pf-dot"));
+    const tip = el("span", "pf-tip");
+    tip.append(el("b", null, PLATFORMS[platform]));
+    for (const l of lines) {
+      const row = el("span", `pf-line ${l.state}`);
+      row.append(el("span", "pf-dot"), document.createTextNode(l.text));
+      tip.append(row);
+    }
+    item.append(tip);
+    indicator.append(item);
+  }
+}
+
 function onStatus(ev) {
   statuses.set(`${ev.platform}:${ev.channel}`, ev);
   // Con mensajes en pantalla, los cambios importantes se avisan dentro del chat.
   if (hasMessages() && ev.state !== "connecting") append(renderStatus(ev));
   renderWaiting();
+  renderIndicator();
 }
 
 function append(node, ev) {
@@ -389,6 +439,7 @@ function applyStyle(s) {
   document.getElementById("emptyWhat").textContent =
     style.needs === "login" ? "e inicia sesión con tu cuenta de Twitch." : "y añade tu canal de Twitch.";
   renderWaiting();
+  renderIndicator();
   keepAtBottom();
 }
 
@@ -403,6 +454,7 @@ if (api) {
     for (const ev of (snap && snap.events) || []) handle(ev);
     stick = true;
     renderWaiting();
+    renderIndicator();
     keepAtBottom();
   });
 }
