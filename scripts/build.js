@@ -27,7 +27,9 @@ const FORMATS = {
   rpm: { os: "linux", targets: ["rpm"] },
   pacman: { os: "linux", targets: ["pacman"] },
   windows: { os: "win", targets: ["nsis", "portable"] },
-  mac: { os: "mac", targets: ["dmg", "zip"] },
+  // Al pasar los formatos por la línea de comandos, electron-builder ignora las arquitecturas
+  // configuradas y usa solo la del equipo: hay que pedirlas (Apple Silicon e Intel).
+  mac: { os: "mac", targets: ["dmg", "zip"], arch: ["--arm64", "--x64"] },
 };
 const EXT = /\.(AppImage|deb|rpm|pacman|exe|dmg|zip)$/;
 
@@ -61,7 +63,11 @@ if (names.includes("mac") && process.platform !== "darwin") {
 if (!names.length) fail("No queda ningún formato que construir.");
 // Objetivos agrupados por sistema: una llamada a electron-builder por sistema.
 const bySystem = {};
-for (const n of names) (bySystem[FORMATS[n].os] ||= []).push(...FORMATS[n].targets);
+for (const n of names) {
+  const s = (bySystem[FORMATS[n].os] ||= { targets: [], arch: new Set() });
+  s.targets.push(...FORMATS[n].targets);
+  for (const a of FORMATS[n].arch || []) s.arch.add(a);
+}
 if (!fs.existsSync(BUILDER)) fail("No está electron-builder: ejecuta antes `npm install`.");
 
 const { version } = require(path.join(ROOT, "package.json"));
@@ -71,9 +77,10 @@ console.log(bold(`\nShuriken Chat ${version} → ${names.join(", ")}\n`));
 fs.rmSync(DIST, { recursive: true, force: true });
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE; // la terminal de VS Code lo define y rompe Electron
-for (const [os, targets] of Object.entries(bySystem)) {
+for (const [os, { targets, arch }] of Object.entries(bySystem)) {
   // --publish never: en CI (GitHub Actions) electron-builder intentaría publicar él solo.
-  const res = spawnSync(BUILDER, [`--${os}`, ...targets, "--publish", "never"], { cwd: ROOT, env, stdio: "inherit" });
+  const args = [`--${os}`, ...targets, ...arch, "--publish", "never"];
+  const res = spawnSync(BUILDER, args, { cwd: ROOT, env, stdio: "inherit" });
   if (res.status !== 0) fail(`electron-builder ha fallado con ${os} (mira los mensajes de arriba).`);
 }
 
