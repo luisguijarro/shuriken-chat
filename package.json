@@ -10,12 +10,12 @@
   "scripts": {
     "start": "node scripts/start.js",
     "test": "node --test test/",
-    "build": "electron-builder --linux",
-    "build:appimage": "electron-builder --linux AppImage",
+    "build": "node scripts/build.js",
+    "build:appimage": "node scripts/build.js appimage",
     "build:win": "electron-builder --win",
-    "build:deb": "electron-builder --linux deb",
-    "build:rpm": "electron-builder --linux rpm",
-    "build:pacman": "electron-builder --linux pacman"
+    "build:deb": "node scripts/build.js deb",
+    "build:rpm": "node scripts/build.js rpm",
+    "build:pacman": "node scripts/build.js pacman"
   },
   "devDependencies": {
     "electron": "^45.3.0",

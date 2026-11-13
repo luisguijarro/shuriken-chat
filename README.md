@@ -212,11 +212,11 @@ npm install
 npm start                 # ejecutar
 SHURIKEN_DEBUG=1 npm start  # con la consola de la página en la terminal
 npm test                  # tests de la generación de URL
-npm run build             # AppImage, .deb, .rpm y pacman en dist/
-npm run build:appimage    # solo AppImage (también build:deb, build:rpm, build:pacman)
+npm run build             # los 4 paquetes en dist/ + SHA256SUMS.txt
+npm run build -- deb pacman   # solo los formatos indicados (appimage, deb, rpm, pacman)
 ```
 
-> El `.rpm` necesita `rpmbuild` instalado (`sudo pacman -S rpm-tools` en Arch). El resto no necesita nada más.
+> `npm run build` limpia `dist/`, genera los paquetes, calcula `SHA256SUMS.txt` y muestra un resumen. Funciona también en la terminal de VS Code. El `.rpm` necesita `rpmbuild` (`sudo pacman -S rpm-tools` en Arch); si no está, se salta avisando.
 
 ## Cómo funciona
 

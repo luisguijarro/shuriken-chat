@@ -21,7 +21,7 @@ Todo se muestra en una ventana **sin bordes, transparente, redimensionable, arra
 
 ## Empaquetado
 
-- electron-builder: `linux.target` = AppImage, deb, rpm, pacman (`npm run build`, o `build:<formato>`). `.rpm` necesita `rpmbuild` (`rpm-tools` en Arch); el resto, nada.
+- **Un solo comando: `npm run build`** (`scripts/build.js`): quita `ELECTRON_RUN_AS_NODE`, limpia `dist/`, lanza electron-builder (`linux.target` = AppImage, deb, rpm, pacman), genera `dist/SHA256SUMS.txt` y muestra un resumen. Formatos sueltos: `npm run build -- deb pacman` (o `build:<formato>`). Si falta `rpmbuild` (`rpm-tools` en Arch), salta el .rpm avisando. Ya no hace falta `env -u ELECTRON_RUN_AS_NODE` para construir.
 - **Dependencias explícitas y mínimas** por formato (`build.deb/rpm/pacman.depends`): Electron ya lleva casi todo. Sin libappindicator: `libappindicator-gtk3` **no existe en Arch** (la lista por defecto de electron-builder hacía el .pacman ininstalable) y la bandeja la gestiona Electron por D-Bus.
 - El comentario del lanzador `.desktop` sale de `linux.description` (electron-builder ignora `desktop.entry.Comment`): mantenerla corta. Sección del .deb con `deb.packageCategory` (`net`) y grupo del .rpm con `rpm.packageCategory` (`Applications/Internet`). Para revisar el .rpm: `rpm -qip`, `rpm -qpR` y `rpm2cpio <rpm> | bsdtar -xf -` (bsdtar no abre el .rpm directamente).
 - Responsable de los paquetes: solo el nombre "Shuriken Chat", sin correo (decisión del usuario).
@@ -163,8 +163,8 @@ npm install
 npm start                     # ejecutar (relanza en X11 si hay Wayland)
 SHURIKEN_DEBUG=1 npm start    # consola de la página + diagnóstico (webrtc, dispositivos, cámara)
 npm test                      # tests de config
-npm run build                 # AppImage + deb + rpm en dist/ (rpm necesita rpmbuild)
-npm run build:appimage        # solo AppImage (~125 MB)
+npm run build                 # AppImage + deb + rpm + pacman en dist/ + SHA256SUMS.txt
+npm run build -- appimage     # solo AppImage (o deb, rpm, pacman)
 ```
 
 Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm start`.
