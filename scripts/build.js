@@ -72,7 +72,8 @@ fs.rmSync(DIST, { recursive: true, force: true });
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE; // la terminal de VS Code lo define y rompe Electron
 for (const [os, targets] of Object.entries(bySystem)) {
-  const res = spawnSync(BUILDER, [`--${os}`, ...targets], { cwd: ROOT, env, stdio: "inherit" });
+  // --publish never: en CI (GitHub Actions) electron-builder intentaría publicar él solo.
+  const res = spawnSync(BUILDER, [`--${os}`, ...targets, "--publish", "never"], { cwd: ROOT, env, stdio: "inherit" });
   if (res.status !== 0) fail(`electron-builder ha fallado con ${os} (mira los mensajes de arriba).`);
 }
 

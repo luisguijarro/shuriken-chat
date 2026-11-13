@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write
 
+defaults:
+  run:
+    # bash explícito = "-eo pipefail": si falla un paso con "| tee", el paso falla (si no, tee lo ocultaba).
+    shell: bash
+
 jobs:
   macos:
     runs-on: macos-latest
