@@ -14,7 +14,7 @@ Todo se muestra en una ventana **sin bordes, transparente, redimensionable, arra
 
 ## Ramas y releases
 
-- **Una rama por plataforma**, con el nombre de la plataforma (`twitch`, luego `kick`, `youtube`…), y **una release por cada plataforma añadida**. Versiones: 0.2.0 = solo SSN, 0.3.0 = Twitch, 0.4.0 = Kick (publicadas), 0.5.0 = YouTube.
+- **Una rama por plataforma o feature**, con su nombre (`twitch`, `kick`, `youtube`, `obs`…), y **una release por cada una**. Versiones: 0.2.0 = solo SSN, 0.3.0 = Twitch, 0.4.0 = Kick, 0.5.0 = YouTube (publicadas), 0.6.0 = OBS.
 - Tras terminar una plataforma: tests, prueba en vivo, commit en su rama, push y AppImage (`npm run build:appimage`). Fusionar en master y publicar la release solo cuando el usuario lo confirme.
 - El remoto `origin` es un Gitea/Forgejo propio (git.dark-pi.net).
 
@@ -43,7 +43,10 @@ ui/badges/kick/*.svg         Iconos propios de las insignias clásicas de Kick (
 src/sources/youtube.js       Conector de YouTube: busca el directo del canal y sondea el chat (sin cuenta ni claves)
 src/sources/youtube-parse.js Puro y testeado: normalizeYoutubeTarget, parseLivePage, acciones del chat -> eventos
 ui/badges/youtube/*.svg      Iconos propios: propietario, moderador, verificado (miembro = imagen del canal)
-ui/chat.html/.css/.js     Render del chat propio (modo plataformas)
+ui/chat.html/.css/.js     Render del chat propio (modo plataformas). En la app y, servido por HTTP, en OBS
+src/obs-server.js         Servidor local para OBS (127.0.0.1 + clave): página /obs, ficheros del chat y datos por SSE
+ui/obs.html, ui/obs.js    Página de OBS: reproduce la ventana (marco, tamaño, zoom) y la escala a la fuente
+ui/obs-bridge.js          En OBS crea window.shurikenChat con los datos del servidor (en la app no hace nada)
 ui/settings.html/.css/.js Ventana "Configuración…": formulario, importar URL de SSN, vista previa en vivo
 ui/frame.html             Marco de la ventana del chat (borde, fondo chroma, esquinas); estilo inyectado con frameCss()
 ui/welcome.html           Se muestra en la vista del chat si aún no hay sesión
@@ -61,7 +64,9 @@ test/config.test.js       Tests de config (node --test)
 - **Arrastre/redimensión**: el preload envía `shuriken:drag-start` (dirección o null) y `drag-end`; el main sigue el cursor con `screen.getCursorScreenPoint()` cada 16 ms y hace `setPosition`/`setBounds`. Requiere X11 (ver abajo). Alt+arrastrar funciona sobre enlaces/botones.
 - **IPC**: el main comprueba `event.sender` (chat vs ajustes). La web remota solo puede: `shuriken:menu`, `drag-start`, `drag-end`, `page-state`. Los comandos de ajustes (`get_settings`, `preview_settings`, `save_settings`, `revert_settings`) solo se aceptan desde la ventana de ajustes. **Al añadir un comando**: registrarlo en `registerIpc()` y, si es de ajustes, en la lista blanca de `preload-settings.js`.
 - **Ajustes**: `preview_settings` aplica sin guardar; `save_settings` guarda; cerrar la ventana de ajustes vuelve a lo que hay en disco.
-- **Menú contextual** (nativo): Configuración…, Zoom, Siempre visible, Bloquear posición y tamaño, Atravesar clics, Recargar, Salir. **Bandeja**: Mostrar/ocultar, Atravesar clics (única forma de desactivarlo sin reiniciar), Configuración…, Salir.
+- **Menú contextual** (nativo): Configuración…, Zoom, Siempre visible, Chat para OBS, Bloquear posición y tamaño, Atravesar clics, Limpiar chat, Recargar, Salir.
+- **Limpiar chat** (`clearChat`): en modo plataformas, `sources.clearAll()` emite `{type:"clear-all"}` (vacía el backlog y llega a la app y a OBS; los canales siguen conectados y su estado se conserva). En modo SSN no se puede vaciar el dock desde fuera: se recarga la vista y se envía `reload` a OBS para recargar su iframe.
+- **Botones de la ventana** (arriba a la izquierda, los pinta el preload en la vista del chat: valen en modo plataformas y SSN): 📌 Siempre visible y 📡 Chat para OBS. **Solo aparecen con el ratón encima** (son controles, no parte del chat: así no salen en el directo y la ventana sigue igual que OBS). Atenuados si la opción está desactivada; tooltip con el estado. Se ocultan con "atravesar clics". Estado vía `pageState().toolbar`; clic → IPC `shuriken:toggle` (solo desde la vista del chat, frame principal). `setAlwaysOnTop` y `setObsEnabled` se aplican y guardan al momento (también desde Configuración → Ventana y el menú). **Bandeja**: Mostrar/ocultar, Atravesar clics (única forma de desactivarlo sin reiniciar), Configuración…, Salir.
 - **Config** en `~/.config/shuriken-chat/config.json` (`%APPDATA%` en Windows). `userData` de Chromium se fija en esa misma carpeta (si no, sería "~/.config/Shuriken Chat").
   - `appearance`: lo que va a la URL (session, ln, scale, sidepadding, chroma RGBA hex, darkmode, bubble, textglow, randomcolor, fadedtop, hidemenu, extraParams) + marco (margin=10, borderWidth=1, borderColor RGBA hex, cornerRadius=10). Defaults = config elegida por el usuario: sidePadding 0, useChroma true con chroma 00000066, borde 1 px ffffff66 + CSS (transparentBg, opacity, hideScrollbar, customCss).
   - `hideMenu` (true por defecto) añade `&hidemenu`: SSN solo oculta su barra de controles sola dentro de OBS.
@@ -71,6 +76,7 @@ test/config.test.js       Tests de config (node --test)
 - **Sin cámara/micro (requisito del usuario)**: el preload ejecuta en el mundo de la página (`contextBridge.executeInMainWorld`) un bloqueo de `enumerateDevices` (→ []), `getUserMedia` y `getDisplayMedia` (→ NotAllowedError). Usa propiedades con getter + setter vacío: **SSN reasigna `getUserMedia`**, y con `writable:false` lanzaba un TypeError. Además el main deniega permisos (lista blanca: solo `clipboard-sanitized-write`).
 - Los enlaces de los mensajes se abren en el navegador del sistema (`setWindowOpenHandler` + `will-navigate` a otro origen).
 - Instancia única (`requestSingleInstanceLock`).
+- **Medidas al redimensionar**: en cada `resize` el main envía `shuriken:size` (`getContentSize`, las mismas medidas que la tabla de OBS) a la vista del chat; el preload pinta una etiqueta centrada (estilos por CSSOM, valen con la CSP de SSN) que desaparece 1 s después. No sale en OBS.
 
 ## Chat propio (modo plataformas)
 
@@ -82,10 +88,22 @@ test/config.test.js       Tests de config (node --test)
 - Opciones de Configuración que usa el render propio: darkMode, bubble, textGlow, randomColor, fadedTop, scale, sidePadding (+ el CSS común: transparencia, opacidad, CSS personalizado). Las exclusivas de SSN (sesión, idioma, hideMenu, extraParams, baseUrl, URL generada) se ocultan en modo plataformas (`.ssn-only`).
 - `sources.mode` por defecto: "native", salvo que ya haya sesión de SSN (así quien actualiza no ve cambios).
 - **Twitch no avisa si un canal no existe** (ni error ni JOIN): si no confirma la unión en 8 s (`JOIN_TIMEOUT_MS`) se emite un estado `error`. Al añadir un canal en Configuración se comprueba con IVR (`check_twitch_channel` → `lookupChannel`): rojo si no existe, punto rojo si está en directo.
-- **Panel de estado** (`#waiting` en chat.html): mientras no hay mensajes muestra el estado de cada canal (conectando / conectado, esperando mensajes / error), porque una ventana vacía parece rota. `SourceManager.snapshot()` incluye el último estado de cada canal para reenviarlo al recargar la página.
+- **Indicador de plataformas** (`#platforms` en chat.html, arriba a la derecha; sale también en OBS): un icono por plataforma con canales configurados (`style.channels`), altura 0,75em (≤ una letra del chat, escala con el texto) y punto con el peor estado de sus canales (`SEVERITY`: error 🔴 > desconectado/conectando 🟡 > sin directo ⚪ > conectado 🟢). Tooltip CSS (`:hover`) con el estado de cada canal. Sin canales de una plataforma, no hay icono.
+- **El estado de conexión solo se muestra en los iconos de arriba** (y su tooltip). Ya no hay avisos de estado entre los mensajes ni panel de "esperando mensajes" (se quitaron por redundantes). `SourceManager.snapshot()` sigue incluyendo el último estado de cada canal para reenviarlo al recargar. Sin canales configurados se mantiene el aviso `#empty` ("clic derecho → Configuración…"), porque entonces no hay iconos.
 - `twoLines` (true por defecto): texto debajo del nombre. En el chat propio es la clase `twolines`; en SSN añade `&twolines`. Al importar una URL de SSN sin ese parámetro se conserva la preferencia (igual que `hideMenu`).
 - `showPlatform` (true por defecto): icono de la plataforma delante del nombre (`ui/platforms/<plataforma>.svg`, mapa `PLATFORMS` en chat.js). Se oculta con la clase `noplatform` sin volver a pintar. En SSN, si es false se añade `&hidesource` (SSN muestra los iconos de origen por defecto). **Al añadir una plataforma**: su SVG en `ui/platforms/` y su entrada en `PLATFORMS`.
 - En modo SSN, cambiar opciones que van en la URL recarga el dock y **SSN pierde los mensajes** (no tiene historial): es inevitable. En modo plataformas el aspecto se aplica sin recargar (comprobado).
+
+## OBS (fuente de navegador)
+
+- **Requisito del usuario: en OBS se ve EXACTAMENTE igual que la ventana de la app** (en cualquier modo, también SSN), porque la app también sale en directo cuando se muestra el escritorio. Nada de versiones "parecidas": OBS carga **los mismos ficheros** del chat.
+- `src/obs-server.js`: servidor HTTP de Node **solo en 127.0.0.1**, puerto `cfg.obs.port` (8187), clave aleatoria `cfg.obs.key` (se crea al arrancar y se guarda con `persistObsKey`; botón "Cambiar la clave"). `/obs` y `/events` exigen `?k=`; los demás ficheros, solo los de la lista blanca `STATIC` de `ui/` (nada fuera de ui/).
+- `/events` es SSE: al conectar envía `layout`, `style`, `pagecss` y `backlog` (snapshot) y después `event` (cada evento del chat), y cambios de `layout`/`style`/`pagecss` (`obs.broadcast`). `pushObsLayout()` se llama al redimensionar (máx. 10/s), cambiar zoom, marco o fuente.
+- `ui/obs.js` coloca un "escenario" del tamaño de la ventana (`getContentSize`) con el marco (`.frame`, `frameCss(a, ".frame")`: en OBS la opacidad va solo al marco para no multiplicarla con la del chat, que va dentro) y la vista del chat en un iframe desplazado `inset` con `innerRadius`. El zoom de la app = iframe de `tamaño/zoom` con `scale(zoom)`. Todo se escala con `scale(min(ancho/w, alto/h))` para llenar la fuente sin deformarse.
+- Contenido del iframe (`obsSource()`): modo plataformas → `chat.html?k=` (mismo chat.js/chat.css; `obs-bridge.js` crea `window.shurikenChat` con SSE). Modo SSN → la URL de SSN + `&b64css=` (base64 de `encodeURIComponent(pageCss)`: SSN lo aplica; en un iframe de otro dominio no se puede inyectar CSS). Sin sesión → welcome.html. En SSN, cambiar el CSS recarga el iframe de OBS.
+- **Trampa resuelta**: el servidor manda el estado inicial al instante y llega ANTES de que `chat.js` termine de descargarse → se perdía. `obs-bridge.js` guarda lo recibido y lo entrega al registrarse cada receptor (los mensajes, siempre después del historial).
+- **Tabla de escalado** (Configuración → OBS → "Tamaño y posición según el lienzo de OBS"): `obs_info` devuelve la pantalla donde está la ventana (`screen.getDisplayMatching`) en píxeles reales (× `scaleFactor`) con el tamaño y la posición de la ventana. Para cada lienzo habitual (720/1080/1440/2160, 16:9) la escala es `altoLienzo / altoPantalla` (por la altura, para que valga con pantallas ultrapanorámicas). Se marca la fila de la pantalla actual y se refresca cada 1,5 s.
+- En OBS no hay interacción (sin preload): los avisos del AutoMod se ven igual que en la app (plegados), sin botones activos.
 
 ## Kick
 
@@ -113,7 +131,8 @@ test/config.test.js       Tests de config (node --test)
 - Leer el chat sigue siendo **anónimo** también con cuenta (IRC justinfan). La sesión solo hace falta para lo que Twitch no muestra a los espectadores: de momento, **mensajes retenidos por el AutoMod** (solo los ven el dueño del canal y sus moderadores).
 - **Inicio de sesión**: device code grant flow con app de tipo **Público** (sin secreto). `POST id.twitch.tv/oauth2/device` (parámetro `scopes`, en plural) → el usuario entra en `verification_uri` (lleva el código; se abre con `shell.openExternal`) → se sondea `oauth2/token` con `grant_type=urn:ietf:params:oauth:grant-type:device_code`. Access token 4 h; el refresh token de clientes públicos es **de un solo uso** y caduca a los 30 días sin uso. Scope actual: `moderator:manage:automod` (añadir scopes obliga a volver a iniciar sesión).
 - **Client ID**: público (se puede incluir en el código). `DEFAULT_CLIENT_ID` en twitch-auth.js (app registrada por el usuario: `ydsw4s6rvi9qild7izjdryl3zvtdb6`); se puede sobrescribir en Configuración (`sources.twitch.clientId`). Registrar la app exige 2FA en la cuenta de Twitch.
-- **Tokens**: en `twitch-auth.json` (NO en config.json), cifrados con `safeStorage` (en la máquina del usuario: kwallet6). Sin llavero: en claro con permisos 600. Cerrar sesión borra el fichero y revoca el token.
+- **Tokens**: en `twitch-auth.json` (NO en config.json), cifrados con `safeStorage` **asíncrono** (`encryptStringAsync` / `decryptStringAsync` / `isAsyncEncryptionAvailable`; las versiones síncronas están obsoletas en Electron 45). En la máquina del usuario: kwallet6. Sin llavero: en claro con permisos 600. Cerrar sesión borra el fichero y revoca el token. La carga es asíncrona: `auth.ready`, y al terminar se emite `change` (el SourceManager se reaplica solo).
+- **Trampa**: `decryptStringAsync` **NO descifra** lo cifrado con el antiguo `encryptString` (comprobado con kwallet6, aunque la documentación diga que sí). `load()` hace una migración de una vez: si falla el asíncrono, lee con `decryptString` y re-cifra con el asíncrono (el aviso de obsolescencia sale solo esa vez).
 - **EventSub**: `wss://eventsub.wss.twitch.tv/ws`; tras `session_welcome` hay 10 s para suscribirse (`POST helix/eventsub/subscriptions`, transport websocket + session_id). Suscripciones `automod.message.hold` y `automod.message.update` versión 2 por canal (`broadcaster_user_id` + `moderator_user_id` = el usuario). 403 = no es moderador de ese canal (se muestra en Configuración). `session_reconnect`: conectar a `reconnect_url` y cerrar el viejo tras el welcome (las suscripciones se conservan).
 - **Aprobar/denegar**: `POST helix/moderation/automod/message` `{user_id, msg_id, action: ALLOW|DENY}` → 204. Desde el chat por `window.shurikenChat.automod(id, allow)` → IPC `shuriken:automod`, que el main **solo acepta desde ui/chat.html** en modo plataformas (nunca desde la web de SSN).
 - **Render**: el mensaje retenido NO se muestra; solo un aviso. Con el ratón encima se despliega (motivo, texto, botones) y el autoscroll se pausa (`hoverPause`). Al resolverse (`automod-update`) queda un aviso 20 s. Si se aprueba, el mensaje llega además por IRC como uno normal.
@@ -125,7 +144,7 @@ test/config.test.js       Tests de config (node --test)
 - **`webContents.executeJavaScript` espera a que la página termine de cargar**, y SSN nunca termina (conexiones abiertas): usar `webContents.mainFrame.executeJavaScript`.
 - npm 12 bloquea scripts de instalación: `electron-winstaller` está denegado (solo Windows); el binario de Electron sí se descarga.
 - Al hacer `pkill` en pruebas, matar primero el proceso principal; si se matan antes los hijos sale un falso "GPU process isn't usable". Usar patrones tipo `[s]huriken-chat/...` para que `pkill -f` no se mate a sí mismo.
-- Avisos inofensivos al arrancar: `GetVSyncParametersIfAvailable() failed`, `atom_cache ... kAtomsToCache`, y "Wake lock request failed" de SSN (denegado a propósito).
+- **Registro de Chromium silenciado**: `--log-level=3` (solo fatales) salvo con `SHURIKEN_DEBUG=1`. **Como `--ozone-platform`, solo funciona en la línea de comandos real**: con `appendSwitch` (aunque lo reciban los procesos hijos) el aviso sigue saliendo, y con `--enable-logging` es peor (comprobado). Por eso lo añade `quietArgs()` al relanzar con X11 y `scripts/start.js` al lanzar `npm start`. Oculta avisos inofensivos como `GetVSyncParametersIfAvailable() failed` (XWayland no da la sincronía de la pantalla; Chromium usa 60 Hz), `atom_cache ... kAtomsToCache` y "Wake lock request failed" de SSN. Los `console.*` propios de la app (`[shuriken] …`) se siguen viendo. **El aviso de VSync es intermitente**: para comprobar que no sale, repetir varias ejecuciones de ≥30 s.
 
 ## Comandos
 
@@ -142,7 +161,8 @@ Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm
 
 ## Estado actual
 
-- 🚧 Rama `youtube` (v0.5.0): YouTube sin cuenta. Probado en vivo (canal inexistente, canal en directo con 63 mensajes en 20 s, emojis personalizados, canal sin directo → espera). Super Chats/miembros/insignias probados solo con tests (no aparecieron en vivo). Pendiente: que el usuario lo pruebe, PR y release.
+- 🚧 Rama `obs` (v0.6.0): chat para OBS idéntico a la app. Probado: app y vista de OBS lado a lado (mismos mensajes, maquetación, marco y zoom, escalado ×1,48), modo SSN (URL con b64css), sección OBS en Configuración. Pendiente: que el usuario lo pruebe en OBS de verdad, PR y release.
+- ✅ v0.5.0 (YouTube) fusionada y publicada.
 - ✅ v0.4.0 (Kick) fusionada y publicada.
 - ✅ v0.3.0 (Twitch) fusionada y publicada como release en el Forgejo (`fj release create`; `fj release view` busca por nombre, no por etiqueta).
 - 🚧 AutoMod con sesión: hecho y probado sin sesión (render, hover, errores, tests). Client ID incluido; Twitch acepta el inicio del flujo. Pendiente: que el usuario inicie sesión y lo pruebe con un mensaje retenido real. La app está registrada como **Público** (comprobado en la consola; la `verification_uri` devuelta no lleva `public=true` aunque el ejemplo de la documentación sí, y es normal).

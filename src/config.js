@@ -75,6 +75,21 @@ const DEFAULT_SYSTEM = {
   compatRendering: false,
 };
 
+/** Chat para OBS (fuente de navegador servida por la propia app). */
+const DEFAULT_OBS = {
+  enabled: true,
+  port: 8187,
+  key: "", // clave de la URL; se genera al arrancar si falta
+};
+
+function normalizeObs(raw) {
+  const o = withDefaults(DEFAULT_OBS, raw);
+  const port = Math.round(Number(o.port));
+  o.port = port >= 1024 && port <= 65535 ? port : DEFAULT_OBS.port;
+  o.key = String(o.key).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64);
+  return o;
+}
+
 /** Estado de la ventana, gestionado desde el menú contextual. */
 const DEFAULT_WINDOW = {
   x: null,
@@ -117,6 +132,7 @@ function normalize(raw) {
     sources: normalizeSources(c.sources, appearance),
     appearance,
     system: withDefaults(DEFAULT_SYSTEM, c.system),
+    obs: normalizeObs(c.obs),
     window: withDefaults(DEFAULT_WINDOW, c.window),
   };
 }
@@ -145,6 +161,7 @@ function userSettings(config) {
     },
     appearance: { ...config.appearance },
     system: { ...config.system },
+    obs: { enabled: config.obs.enabled, port: config.obs.port }, // la clave no se edita en el formulario
   };
 }
 
@@ -208,14 +225,19 @@ function frameLayout(appearance) {
   return { border, margin, radius, inset, innerRadius: Math.max(0, radius - inset) };
 }
 
-/** CSS de la página local del marco (ui/frame.html). */
-function frameCss(appearance) {
+/**
+ * CSS de la página local del marco (ui/frame.html).
+ * `opacityTarget`: en la app el marco y el chat son superficies separadas y cada una
+ * lleva su opacidad ("html"); en OBS el chat va dentro de la página del marco, así que
+ * la opacidad del marco se aplica solo a .frame para no multiplicarla.
+ */
+function frameCss(appearance, opacityTarget = "html") {
   const a = withDefaults(DEFAULT_APPEARANCE, appearance);
   const { border, radius } = frameLayout(a);
   // El color de fondo (chroma) lo pinta el marco, para que también cubra el margen.
   const bg = a.useChroma ? cssColor(a.chroma, "00000066") : "transparent";
   const bd = border > 0 ? `${border}px solid ${cssColor(a.borderColor, "ffffff66")}` : "none";
-  return `.frame{border:${bd};border-radius:${radius}px;background:${bg};}\n` + opacityCss(a);
+  return `.frame{border:${bd};border-radius:${radius}px;background:${bg};}\n` + opacityCss(a).replace(/^html\{/, opacityTarget + "{");
 }
 
 /** CSS que inyectamos en la página del chat. */

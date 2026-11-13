@@ -8,6 +8,7 @@
 //   { type: "clear-user", platform, channel, userId }
 //   { type: "clear-channel", platform, channel }
 //   { type: "status", platform, channel, state, text }
+//   { type: "clear-all" }   (el usuario ha limpiado el chat)
 //   { type: "automod-hold", platform, id, channel, user, reason, parts, ts }   (requiere sesión)
 //   { type: "automod-update", platform, id, channel, status: approved|denied|expired, moderator }
 // `parts`: { type: "text", text } | { type: "emote", name, url, zeroWidth? } | { type: "link", text, url }
@@ -162,12 +163,20 @@ class SourceManager extends EventEmitter {
       case "clear-channel":
         this.backlog = this.backlog.filter((m) => !(m.platform === ev.platform && m.channel === ev.channel));
         break;
+      case "clear-all":
+        this.backlog = [];
+        break;
       case "status":
         this.statuses.set(`${ev.platform}:${ev.channel}`, ev);
         break;
       default:
     }
     this.emit("event", ev);
+  }
+
+  /** Limpia el chat: historial y pantallas (app y OBS). Los canales siguen conectados. */
+  clearAll() {
+    this.push({ type: "clear-all" });
   }
 
   /** Aprueba o deniega un mensaje retenido por el AutoMod. */

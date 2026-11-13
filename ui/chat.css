@@ -134,18 +134,6 @@ html.twolines .meta { display: block; font-size: 0.9em; margin-bottom: 0.05em; }
 html.bubble .msg.notice { background: color-mix(in srgb, var(--notice) 22%, var(--bubble-bg)); }
 .system { display: block; color: var(--muted); font-size: 0.85em; font-weight: 600; }
 
-/* Estado de conexión: discreto y efímero. */
-.msg.status {
-  color: var(--muted);
-  font-size: 0.75em;
-  font-style: italic;
-  background: none !important;
-  box-shadow: none;
-  padding: 0;
-}
-.msg.status.error { color: #ff6b6b; }
-.msg.status.gone { opacity: 0; transition: opacity 1s; }
-
 /* ---------- Sin canales ---------- */
 
 #empty {
@@ -167,39 +155,6 @@ html.bubble .msg.notice { background: color-mix(in srgb, var(--notice) 22%, var(
 #empty img { width: 64px; height: 64px; }
 #empty p { margin: 0; line-height: 1.5; padding: 0 16px; }
 #empty kbd { background: #333; border-radius: 4px; padding: 1px 6px; font-size: 12px; }
-
-/* ---------- Estado de conexión (mientras no hay mensajes) ---------- */
-
-#waiting {
-  position: fixed;
-  left: var(--side);
-  right: var(--side);
-  bottom: 0.5em;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3em;
-  font-size: 0.8em;
-  color: var(--muted);
-  user-select: none;
-}
-#waiting[hidden] { display: none; }
-#waiting .line {
-  display: flex;
-  align-items: center;
-  gap: 0.5em;
-  background: var(--bubble-bg);
-  border-radius: 0.6em;
-  padding: 0.35em 0.65em;
-  width: fit-content;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-#waiting .dot { flex: none; width: 0.55em; height: 0.55em; border-radius: 50%; background: #e5b400; }
-#waiting .connected .dot { background: #2ecc71; }
-#waiting .error { color: #ff8080; }
-#waiting .error .dot { background: #ff5252; }
-#waiting .connecting .dot, #waiting .disconnected .dot { animation: pulse 1s ease-in-out infinite alternate; }
-@keyframes pulse { to { opacity: 0.3; } }
 
 /* ---------- AutoMod ---------- */
 
@@ -252,3 +207,58 @@ html.bubble .msg.automod { background: color-mix(in srgb, var(--am) 16%, var(--b
 .msg.automod.denied { --am: #ff5252; }
 .msg.automod.expired { --am: #888; }
 .msg.automod.gone { opacity: 0; }
+
+/* ---------- Indicador de plataformas (arriba a la derecha) ---------- */
+
+#platforms {
+  position: fixed;
+  top: 0.35em;
+  right: calc(var(--side) + 0.35em);
+  display: flex;
+  gap: 0.4em;
+  z-index: 5;
+  font-size: var(--font-size);
+  line-height: 1;
+}
+.pf { position: relative; display: inline-flex; }
+/* Como mucho, la altura de una letra del chat (crece y decrece con la escala del texto). */
+.pf > img { height: 0.75em; width: 0.75em; display: block; }
+.pf-dot {
+  width: 0.36em;
+  height: 0.36em;
+  border-radius: 50%;
+  background: #2ecc71; /* conectado */
+  box-shadow: 0 0 0 0.08em rgba(0, 0, 0, 0.55);
+  flex: none;
+}
+.pf > .pf-dot { position: absolute; right: -0.12em; bottom: -0.12em; }
+.connecting > .pf-dot, .pf-line.connecting > .pf-dot,
+.disconnected > .pf-dot, .pf-line.disconnected > .pf-dot { background: #e5b400; }
+.pf.connecting > .pf-dot, .pf.disconnected > .pf-dot { animation: pulse 1s ease-in-out infinite alternate; }
+@keyframes pulse { to { opacity: 0.3; } }
+.offline > .pf-dot, .pf-line.offline > .pf-dot { background: #9a9aa6; }
+.error > .pf-dot, .pf-line.error > .pf-dot { background: #ff5252; }
+
+/* Tooltip con el estado de cada canal (al pasar el ratón). */
+.pf-tip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.45em);
+  right: 0;
+  width: max-content;
+  max-width: 18em;
+  padding: 0.45em 0.6em;
+  border-radius: 0.5em;
+  background: rgba(16, 16, 22, 0.95);
+  color: #eee;
+  font-size: 0.7em;
+  line-height: 1.35;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  flex-direction: column;
+  gap: 0.25em;
+  text-shadow: none;
+}
+.pf:hover > .pf-tip { display: flex; }
+.pf-tip b { font-weight: 700; }
+.pf-line { display: flex; align-items: center; gap: 0.45em; }
+.pf-line.error { color: #ff9b9b; }

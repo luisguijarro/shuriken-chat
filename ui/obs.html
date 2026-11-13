@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self'; frame-src 'self' https:" />
+  <title>Shuriken Chat · OBS</title>
+  <!-- Fuente de navegador de OBS: reproduce la ventana del chat tal cual (marco,
+       tamaño, zoom) con el chat dentro, escalado para llenar la fuente sin deformarse.
+       El estilo del marco (.frame) lo envía la app (config.frameCss). -->
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+    #stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+    .frame { position: absolute; inset: 0; box-sizing: border-box; }
+    #view { position: absolute; overflow: hidden; }
+    #view iframe { position: absolute; left: 0; top: 0; border: 0; background: transparent; transform-origin: 0 0; }
+  </style>
+  <style id="frameCss"></style>
+</head>
+<body>
+  <div id="stage">
+    <div class="frame"></div>
+    <div id="view"><iframe id="chat" title="Chat"></iframe></div>
+  </div>
+  <script src="obs.js"></script>
+</body>
+</html>

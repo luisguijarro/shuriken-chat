@@ -10,7 +10,11 @@ const electron = require("electron"); // en Node devuelve la ruta del binario
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
 
-const child = spawn(electron, [path.join(__dirname, ".."), ...process.argv.slice(2)], {
+// Sin los avisos internos de Chromium (solo fatales), salvo con SHURIKEN_DEBUG=1.
+// Tiene que ir en la línea de comandos: desde el código llega tarde.
+const quiet = process.env.SHURIKEN_DEBUG ? [] : ["--log-level=3"];
+
+const child = spawn(electron, [path.join(__dirname, ".."), ...quiet, ...process.argv.slice(2)], {
   stdio: "inherit",
   env,
 });

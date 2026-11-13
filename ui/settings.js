@@ -196,6 +196,80 @@ function setMode(mode) {
   document.body.classList.toggle("mode-ssn", mode === "ssn");
 }
 
+// ---------- OBS ----------
+
+async function refreshObs() {
+  let info;
+  try {
+    info = await invoke("obs_info");
+  } catch {
+    return;
+  }
+  document.body.classList.toggle("obs-off", !info.enabled);
+  // Puede haberse cambiado con el botón del chat o el menú.
+  if (document.activeElement !== $("obsEnabled")) $("obsEnabled").checked = info.enabled;
+  try {
+    const w = await invoke("window_state");
+    if (document.activeElement !== $("alwaysOnTop")) $("alwaysOnTop").checked = w.alwaysOnTop;
+  } catch {}
+  if (document.activeElement !== $("obsUrl")) $("obsUrl").value = info.url || "";
+  $("obsSize").textContent = `Tamaño de la ventana del chat: ${info.width} × ${info.height}. En OBS se escala sin deformarse a cualquier tamaño de fuente.`;
+  renderObsScale(info.screen);
+  if (info.error) message("obsMsg", info.error, "error");
+  else if ($("obsMsg").classList.contains("error")) message("obsMsg", "", "");
+}
+
+// Lienzos habituales de OBS (16:9). La escala sale de la ALTURA: así sirve también
+// con pantallas ultrapanorámicas, aunque la posición X se ajusta a un lienzo 16:9.
+const CANVASES = [
+  [1280, 720],
+  [1920, 1080],
+  [2560, 1440],
+  [3840, 2160],
+];
+
+function renderObsScale(scr) {
+  const tbody = document.querySelector("#obsScale tbody");
+  if (!scr || !scr.height) return;
+  const key = JSON.stringify(scr);
+  if (tbody.dataset.key === key) return; // sin cambios: no repintar (evita parpadeo)
+  tbody.dataset.key = key;
+  tbody.textContent = "";
+  const rows = CANVASES.some(([, h]) => h === scr.height) ? CANVASES : [...CANVASES, [scr.width, scr.height]].sort((a, b) => a[1] - b[1]);
+  for (const [cw, ch] of rows) {
+    const r = ch / scr.height;
+    const tr = document.createElement("tr");
+    if (ch === scr.height) tr.className = "current";
+    const cells = [
+      `${cw} × ${ch}${ch === scr.height ? " (tu pantalla)" : ""}`,
+      `${Math.round(scr.winWidth * r)} × ${Math.round(scr.winHeight * r)}`,
+      `${Math.round(scr.x * r)}, ${Math.round(scr.y * r)}`,
+    ];
+    for (const c of cells) {
+      const td = document.createElement("td");
+      td.textContent = c;
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
+  $("obsScreen").textContent = `Calculado para tu pantalla de ${scr.width} × ${scr.height}, donde la ventana del chat mide ${scr.winWidth} × ${scr.winHeight} en (${scr.x}, ${scr.y}). Se actualiza al mover o redimensionar la ventana.`;
+}
+
+$("obsCopy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText($("obsUrl").value);
+    message("obsMsg", "URL copiada ✓ — pégala en una Fuente de navegador de OBS.", "ok");
+  } catch {
+    $("obsUrl").select();
+  }
+});
+$("obsNewKey").addEventListener("click", async () => {
+  await invoke("obs_new_key").catch(() => {});
+  await refreshObs();
+  message("obsMsg", "Clave cambiada: copia la nueva URL en OBS.", "ok");
+});
+setInterval(refreshObs, 1500); // el tamaño sigue a la ventana del chat
+
 // ---------- cuenta de Twitch (AutoMod) ----------
 
 let authState = { loggedIn: false, hasDefaultClientId: false, moderation: {} };
@@ -315,6 +389,8 @@ function fill(view) {
   $("extraParams").value = a.extraParams;
   $("customCss").value = a.customCss;
   $("baseUrl").value = a.baseUrl;
+  $("obsEnabled").checked = view.obs.enabled;
+  $("obsPort").value = view.obs.port;
   $("nativeWayland").checked = s.nativeWayland;
   $("compatRendering").checked = s.compatRendering;
   $("url").value = view.url || "";
@@ -362,6 +438,10 @@ function collect() {
     system: {
       nativeWayland: $("nativeWayland").checked,
       compatRendering: $("compatRendering").checked,
+    },
+    obs: {
+      enabled: $("obsEnabled").checked,
+      port: Number($("obsPort").value) || 8187,
     },
   };
 }
@@ -462,8 +542,14 @@ async function load() {
 
 document.addEventListener("input", (e) => {
   if (["importUrl", "twitchInput", "kickInput", "youtubeInput"].includes(e.target.id)) return;
+  if (e.target.id === "alwaysOnTop") {
+    // No forma parte de los ajustes a guardar: se aplica al momento.
+    invoke("set_always_on_top", { value: e.target.checked }).catch(() => {});
+    return;
+  }
   if (e.target.name === "mode") setMode(getMode());
   if (e.target.name === "twitchMode") setTwitchMode(getTwitchMode());
+  if (e.target.id === "obsEnabled") document.body.classList.toggle("obs-off", !e.target.checked);
   schedulePreview();
 });
 
@@ -512,4 +598,4 @@ $("revert").addEventListener("click", async () => {
 });
 
 if (window.shuriken.onAuthChanged) window.shuriken.onAuthChanged(refreshAuth);
-load().then(refreshAuth).catch((e) => message("status", String(e), "error"));
+load().then(() => Promise.all([refreshAuth(), refreshObs()])).catch((e) => message("status", String(e), "error"));

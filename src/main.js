@@ -8,6 +8,7 @@ const {
 } = require("electron");
 const config = require("./config");
 const { SourceManager } = require("./sources");
+const { ObsServer, newKey } = require("./obs-server");
 const { lookupChannel } = require("./sources/twitch-assets");
 const { TwitchAuth, DEFAULT_CLIENT_ID } = require("./sources/twitch-auth");
 const { normalizeChannel } = require("./sources/twitch-parse");
@@ -36,6 +37,8 @@ let settingsWin = null;
 let tray = null;
 let currentUrl = null; // URL cargada en la ventana del chat
 let clickThrough = false; // no se guarda: así un reinicio siempre lo desactiva
+// Chat para OBS: servidor local que reproduce esta ventana (ver src/obs-server.js).
+const obs = new ObsServer({ uiDir: UI, snapshot: () => obsSnapshot() });
 const cssKeys = new Map(); // webContents -> clave del CSS inyectado
 
 // ---------------------------------------------------------------------------
@@ -52,6 +55,18 @@ app.setPath("userData", config.configDir());
  * software), así que hay que pasar `--ozone-platform=x11` en la línea de
  * comandos: si no viene, nos relanzamos con él y salimos sin abrir nada.
  */
+/**
+ * Mensajes internos de Chromium: solo los fatales, salvo con SHURIKEN_DEBUG=1.
+ * (P. ej. "GetVSyncParametersIfAvailable() failed": XWayland no da la sincronía de la
+ * pantalla, Chromium usa 60 Hz y sigue sin problema, pero lo registra como ERROR.)
+ * Como --ozone-platform, solo funciona en la LÍNEA DE COMANDOS: con appendSwitch llega
+ * tarde (comprobado). Se añade al relanzar con X11; `npm start` ya lo pasa.
+ */
+function quietArgs() {
+  if (process.env.SHURIKEN_DEBUG || app.commandLine.hasSwitch("log-level")) return [];
+  return ["--log-level=3"];
+}
+
 function relaunchWithX11IfNeeded() {
   if (process.platform !== "linux" || cfg.system.nativeWayland) return false;
   // Ojo: Electron rellena él mismo el valor ("wayland"), así que se mira el valor.
@@ -59,7 +74,7 @@ function relaunchWithX11IfNeeded() {
   if (process.env.SHURIKEN_RELAUNCHED) return false; // evita bucles
   // En un AppImage hay que relanzar el propio .AppImage (su montaje desaparece al salir).
   const exe = process.env.APPIMAGE || process.execPath;
-  const args = [...process.argv.slice(1), "--ozone-platform=x11"];
+  const args = [...process.argv.slice(1), "--ozone-platform=x11", ...quietArgs()];
   try {
     require("child_process")
       .spawn(exe, args, { detached: true, stdio: "inherit", env: { ...process.env, SHURIKEN_RELAUNCHED: "1" } })
@@ -70,6 +85,7 @@ function relaunchWithX11IfNeeded() {
     return false;
   }
 }
+
 
 const relaunching = relaunchWithX11IfNeeded();
 if (cfg.system.compatRendering) app.disableHardwareAcceleration();
@@ -131,8 +147,14 @@ async function replaceCss(wc, css) {
   }
 }
 
-const applyPageCss = () => replaceCss(chatWc(), config.pageCss(cfg.appearance));
-const applyFrameCss = () => replaceCss(frameWc(), config.frameCss(cfg.appearance));
+const applyPageCss = () => {
+  obs.broadcast("pagecss", config.pageCss(cfg.appearance));
+  return replaceCss(chatWc(), config.pageCss(cfg.appearance));
+};
+const applyFrameCss = () => {
+  pushObsLayout();
+  return replaceCss(frameWc(), config.frameCss(cfg.appearance));
+};
 
 /** Coloca la vista del chat dentro del marco. */
 function layoutChat() {
@@ -142,20 +164,25 @@ function layoutChat() {
   chatView.setBounds({ x: inset, y: inset, width: Math.max(0, w - 2 * inset), height: Math.max(0, h - 2 * inset) });
   chatView.setBorderRadius(innerRadius);
   pushPageState();
+  pushObsLayout();
 }
 
 function pushPageState() {
-  const locked = cfg.window.locked;
-  // Los bordes de la ventana los gestiona el marco; la vista del chat solo si
-  // llega casi hasta el borde (margen + borde menores que la zona sensible).
-  const chatEdges = config.frameLayout(cfg.appearance).inset < EDGE;
-  frameWc()?.send("shuriken:state", { locked, edges: true });
-  chatWc()?.send("shuriken:state", { locked, edges: chatEdges });
+  frameWc()?.send("shuriken:state", pageState(frameWc()));
+  chatWc()?.send("shuriken:state", pageState(chatWc()));
 }
 
 function pageState(wc) {
-  if (wc === frameWc()) return { locked: cfg.window.locked, edges: true };
-  return { locked: cfg.window.locked, edges: config.frameLayout(cfg.appearance).inset < EDGE };
+  const locked = cfg.window.locked;
+  if (wc === frameWc()) return { locked, edges: true };
+  return {
+    locked,
+    // Los bordes de la ventana los gestiona el marco; la vista del chat solo si
+    // llega casi hasta el borde (margen + borde menores que la zona sensible).
+    edges: config.frameLayout(cfg.appearance).inset < EDGE,
+    // Botones de arriba a la izquierda (solo en la vista del chat; con "atravesar clics" no se ven).
+    toolbar: clickThrough ? null : { alwaysOnTop: cfg.window.alwaysOnTop, obs: cfg.obs.enabled },
+  };
 }
 
 /** Qué se carga en la vista del chat: nuestro chat propio o el dock de SSN. */
@@ -166,16 +193,22 @@ function loadChat() {
   currentUrl = chatTarget();
   const wc = chatWc();
   if (!wc) return;
+  pushObsLayout();
   if (currentUrl === NATIVE) wc.loadFile(path.join(UI, "chat.html"));
   else if (currentUrl) wc.loadURL(currentUrl);
   else wc.loadFile(path.join(UI, "welcome.html"));
 }
 
-/** Ajustes de aspecto que usa el chat propio (ui/chat.js). */
+/** Ajustes de aspecto que usa el chat propio (ui/chat.js), en la app y en OBS. */
 function pushChatStyle() {
-  if (!nativeChat()) return;
+  const style = chatStyle();
+  obs.broadcast("style", style);
+  if (nativeChat()) chatWc()?.send("shuriken:chat-style", style);
+}
+
+function chatStyle() {
   const a = cfg.appearance;
-  chatWc()?.send("shuriken:chat-style", {
+  return {
     darkMode: a.darkMode,
     bubble: a.bubble,
     textGlow: a.textGlow,
@@ -189,7 +222,90 @@ function pushChatStyle() {
     needs: cfg.sources.twitch.useAccount ? "login" : "channel",
     twoLines: a.twoLines,
     showPlatform: a.showPlatform,
-  });
+  };
+}
+
+// ---------------------------------------------------------------------------
+// OBS: la misma ventana, servida en http://127.0.0.1:<puerto>/obs?k=<clave>
+// ---------------------------------------------------------------------------
+
+/** Qué carga OBS dentro del marco: el mismo chat que la app (o SSN con el mismo CSS). */
+function obsSource() {
+  const key = encodeURIComponent(cfg.obs.key);
+  if (cfg.sources.mode === "native") return `chat.html?k=${key}`;
+  const url = config.chatUrl(cfg.appearance);
+  if (!url) return `welcome.html?k=${key}`;
+  // En un iframe de otro dominio no se puede inyectar CSS: SSN lo admite en la URL (&b64css).
+  const css = Buffer.from(encodeURIComponent(config.pageCss(cfg.appearance))).toString("base64");
+  return `${url}&b64css=${encodeURIComponent(css)}`;
+}
+
+/** Medidas y aspecto de la ventana para la página de OBS. */
+function obsLayout() {
+  const [width, height] = alive(chatWin) ? chatWin.getContentSize() : [cfg.window.width, cfg.window.height];
+  const { inset, innerRadius } = config.frameLayout(cfg.appearance);
+  return {
+    width, height, inset, innerRadius,
+    zoom: cfg.window.zoom,
+    frameCss: config.frameCss(cfg.appearance, ".frame"),
+    src: obsSource(),
+  };
+}
+
+function obsSnapshot() {
+  return { layout: obsLayout(), style: chatStyle(), pagecss: config.pageCss(cfg.appearance), backlog: sources.snapshot() };
+}
+
+let obsLayoutTimer = null;
+function pushObsLayout() {
+  if (obsLayoutTimer) return; // como mucho ~10 veces por segundo (al redimensionar)
+  obsLayoutTimer = setTimeout(() => {
+    obsLayoutTimer = null;
+    obs.broadcast("layout", obsLayout());
+  }, 100);
+}
+
+/** Arranca, reinicia o para el servidor según la configuración. */
+async function syncObsServer() {
+  if (cfg.obs.enabled) await obs.start(cfg.obs.port, cfg.obs.key);
+  else obs.stop();
+}
+
+/** Guarda solo la clave de OBS (no los ajustes que se estén previsualizando). */
+function persistObsKey() {
+  try {
+    const disk = config.load();
+    disk.obs.key = cfg.obs.key;
+    config.save(disk);
+  } catch (e) {
+    console.error("[shuriken] no se pudo guardar la clave de OBS:", e);
+  }
+}
+
+function obsInfo() {
+  const b = alive(chatWin)
+    ? chatWin.getContentBounds()
+    : { x: cfg.window.x || 0, y: cfg.window.y || 0, width: cfg.window.width, height: cfg.window.height };
+  // Pantalla donde está la ventana: sirve para traducir su tamaño y posición a un lienzo de OBS.
+  const d = screen.getDisplayMatching(b);
+  const k = d.scaleFactor || 1;
+  return {
+    enabled: cfg.obs.enabled,
+    running: cfg.obs.enabled && obs.running,
+    error: cfg.obs.enabled ? obs.error : null,
+    url: cfg.obs.enabled ? obs.url() : null,
+    width: b.width,
+    height: b.height,
+    // En píxeles reales de la pantalla (como el lienzo de OBS).
+    screen: {
+      width: Math.round(d.bounds.width * k),
+      height: Math.round(d.bounds.height * k),
+      winWidth: Math.round(b.width * k),
+      winHeight: Math.round(b.height * k),
+      x: Math.round((b.x - d.bounds.x) * k),
+      y: Math.round((b.y - d.bounds.y) * k),
+    },
+  };
 }
 
 function applySettings(settings) {
@@ -197,7 +313,9 @@ function applySettings(settings) {
   cfg.sources = s.sources;
   cfg.appearance = s.appearance;
   cfg.system = s.system;
+  cfg.obs = { ...s.obs, key: cfg.obs.key }; // la clave no viene del formulario
   sources.apply(cfg.sources);
+  syncObsServer();
   if (alive(chatWin)) {
     if (chatTarget() !== currentUrl) loadChat();
     else {
@@ -217,6 +335,7 @@ function applySettings(settings) {
 function setZoom(z) {
   cfg.window.zoom = Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)) * 100) / 100;
   chatWc()?.setZoomFactor(cfg.window.zoom);
+  pushObsLayout();
   persistWindow();
 }
 
@@ -224,12 +343,41 @@ function setClickThrough(v) {
   clickThrough = v;
   if (alive(chatWin)) chatWin.setIgnoreMouseEvents(v);
   buildTray();
+  pushPageState(); // con "atravesar clics" no se muestran los botones del chat
 }
 
-function toggleAlwaysOnTop() {
-  cfg.window.alwaysOnTop = !cfg.window.alwaysOnTop;
+function setAlwaysOnTop(v) {
+  cfg.window.alwaysOnTop = !!v;
   if (alive(chatWin)) chatWin.setAlwaysOnTop(cfg.window.alwaysOnTop);
   persistWindow();
+  pushPageState();
+}
+
+const toggleAlwaysOnTop = () => setAlwaysOnTop(!cfg.window.alwaysOnTop);
+
+/** "Limpiar chat": en modo plataformas se vacía (app, OBS e historial); SSN no se puede
+ *  vaciar desde fuera, así que se recarga (empieza vacío), también en OBS. */
+function clearChat() {
+  if (nativeChat()) {
+    sources.clearAll(); // llega a la app y a OBS como evento "clear-all"
+  } else {
+    chatWc()?.reload();
+    obs.broadcast("reload", true);
+  }
+}
+
+/** Activa o para el chat para OBS (desde el botón, el menú o Configuración). */
+async function setObsEnabled(v) {
+  cfg.obs.enabled = !!v;
+  try {
+    const disk = config.load();
+    disk.obs.enabled = cfg.obs.enabled;
+    config.save(disk);
+  } catch (e) {
+    console.error("[shuriken] no se pudo guardar OBS:", e);
+  }
+  await syncObsServer();
+  pushPageState();
 }
 
 function toggleLocked() {
@@ -273,6 +421,7 @@ function contextMenu() {
     },
     { type: "separator" },
     { label: "Siempre visible", type: "checkbox", checked: cfg.window.alwaysOnTop, click: toggleAlwaysOnTop },
+    { label: "Chat para OBS", type: "checkbox", checked: cfg.obs.enabled, click: () => setObsEnabled(!cfg.obs.enabled) },
     { label: "Bloquear posición y tamaño", type: "checkbox", checked: cfg.window.locked, click: toggleLocked },
     {
       label: "Atravesar clics (se desactiva desde la bandeja)",
@@ -281,6 +430,7 @@ function contextMenu() {
       click: () => setClickThrough(!clickThrough),
     },
     { type: "separator" },
+    { label: "Limpiar chat", click: clearChat },
     { label: "Recargar chat", click: () => chatWc()?.reload() },
     { label: "Salir", click: quit },
   ]);
@@ -511,6 +661,9 @@ function createChatWindow() {
   chatWin.on("resize", () => {
     layoutChat();
     track();
+    // Medidas de la ventana mientras se redimensiona (las mismas que usa la tabla de OBS).
+    const [w, h] = chatWin.getContentSize();
+    chatWc()?.send("shuriken:size", { width: w, height: h });
   });
   chatWin.on("blur", stopDrag);
   chatWin.on("close", persistWindow);
@@ -555,6 +708,12 @@ function registerIpc() {
   });
   ipcMain.on("shuriken:drag-end", (e) => {
     if (fromChat(e)) stopDrag();
+  });
+  // Botones de la ventana del chat (arriba a la izquierda).
+  ipcMain.on("shuriken:toggle", (e, what) => {
+    if (!fromChat(e) || e.senderFrame !== e.sender.mainFrame) return;
+    if (what === "alwaysOnTop") toggleAlwaysOnTop();
+    else if (what === "obs") setObsEnabled(!cfg.obs.enabled);
   });
   ipcMain.handle("shuriken:page-state", (e) => (fromChat(e) ? pageState(e.sender) : null));
   // Aprobar/denegar un mensaje del AutoMod: solo desde NUESTRA página del chat (nunca desde SSN).
@@ -618,6 +777,22 @@ function registerIpc() {
     const c = normalizeChannel(channel);
     return c ? lookupChannel(c) : { exists: false };
   });
+  // ---- OBS ----
+  settingsCmd("obs_info", () => obsInfo());
+  // Opciones de la ventana que se aplican al momento (como el menú y los botones del chat).
+  settingsCmd("window_state", () => ({ alwaysOnTop: cfg.window.alwaysOnTop }));
+  settingsCmd("set_always_on_top", ({ value }) => {
+    setAlwaysOnTop(value);
+    return { alwaysOnTop: cfg.window.alwaysOnTop };
+  });
+  // Nueva clave: la URL anterior deja de funcionar (por si se ha filtrado).
+  settingsCmd("obs_new_key", async () => {
+    cfg.obs.key = newKey();
+    persistObsKey();
+    await syncObsServer();
+    return obsInfo();
+  });
+
   // Aplica los ajustes en vivo, sin guardarlos. Devuelve la URL resultante.
   settingsCmd("preview_settings", ({ settings }) => applySettings(settings));
   settingsCmd("save_settings", ({ settings }) => {
@@ -643,7 +818,14 @@ function start() {
   registerIpc();
   sources.on("event", (ev) => {
     if (nativeChat()) chatWc()?.send("shuriken:chat-event", ev);
+    obs.broadcast("event", ev);
   });
+  // OBS: clave propia de esta instalación (se crea la primera vez).
+  if (!cfg.obs.key) {
+    cfg.obs.key = newKey();
+    persistObsKey();
+  }
+  syncObsServer();
   // Estado del AutoMod por canal: se avisa a Configuración en cuanto se conoce.
   sources.on("moderation", () => {
     if (alive(settingsWin)) settingsWin.webContents.send("shuriken:auth-changed");
@@ -663,5 +845,6 @@ function start() {
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", () => {
   sources.stop();
+  obs.stop();
   persistWindow();
 });

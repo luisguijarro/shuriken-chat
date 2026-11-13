@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: https: data:; font-src 'self'" />
+        content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: https: data:; font-src 'self'; connect-src 'self'" />
   <title>Shuriken Chat</title>
   <link rel="stylesheet" href="chat.css" />
 </head>
@@ -11,11 +11,14 @@
   <!-- Chat propio (modo "plataformas"). Los mensajes llegan del proceso principal
        por window.shurikenChat (preload-chat.js) y se pintan en chat.js. -->
   <main id="messages" aria-live="polite"></main>
-  <div id="waiting" hidden></div>
+  <!-- Plataformas configuradas y su estado (arriba a la derecha). -->
+  <div id="platforms"></div>
   <div id="empty" hidden>
     <img src="icon.svg" alt="" />
     <p>Haz <kbd>clic derecho</kbd> → <b>Configuración…</b><br /><span id="emptyWhat">y conecta tu canal de Twitch.</span></p>
   </div>
+  <!-- En OBS (http://127.0.0.1) crea window.shurikenChat; en la app no hace nada. -->
+  <script src="obs-bridge.js"></script>
   <script src="chat.js"></script>
 </body>
 </html>

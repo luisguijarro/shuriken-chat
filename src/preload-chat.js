@@ -62,6 +62,142 @@ document.addEventListener("contextmenu", (e) => {
 }, true);
 
 // ---------- 3. Mover y redimensionar (solo el frame principal) ----------
+// ---------- 5. Botones de la ventana (arriba a la izquierda, solo el frame principal) ----------
+// Siempre visible y chat para OBS. Solo aparecen con el ratón encima de la ventana: son
+// controles de la app, no parte del chat (así no salen en el directo ni difieren de OBS).
+if (window.top === window) {
+  const SVG = "http://www.w3.org/2000/svg";
+  const ICONS = {
+    // Chincheta
+    alwaysOnTop: ["M15.5 3.5 20.5 8.5 18.6 9.6 15.8 12.4 15.4 17 13.6 18.8 10 15.2 5.2 20 4 18.8 8.8 14 5.2 10.4 7 8.6 11.6 8.2 14.4 5.4z"],
+    // Emisión (punto y ondas)
+    obs: ["M12 10.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z",
+      "M8.1 8.1a5.5 5.5 0 0 0 0 7.8M15.9 8.1a5.5 5.5 0 0 1 0 7.8M5.3 5.3a9.5 9.5 0 0 0 0 13.4M18.7 5.3a9.5 9.5 0 0 1 0 13.4"],
+  };
+  const TITLES = {
+    alwaysOnTop: (on) => `Siempre visible: ${on ? "activado" : "desactivado"} (clic para cambiar)`,
+    obs: (on) => `Chat para OBS: ${on ? "activo" : "parado"} (clic para cambiar)`,
+  };
+  let bar = null;
+  const buttons = {};
+  let hover = false;
+  let state = null;
+
+  function icon(paths, filled) {
+    const svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    Object.assign(svg.style, { width: "14px", height: "14px", display: "block" });
+    paths.forEach((d, i) => {
+      const p = document.createElementNS(SVG, "path");
+      p.setAttribute("d", d);
+      if (filled || i === 0) p.setAttribute("fill", "currentColor");
+      else Object.assign(p.style, { fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" });
+      svg.append(p);
+    });
+    return svg;
+  }
+
+  function build() {
+    bar = document.createElement("div");
+    bar.id = "shuriken-toolbar";
+    Object.assign(bar.style, {
+      position: "fixed", left: "6px", top: "6px", zIndex: "2147483646", display: "flex", gap: "4px",
+      transition: "opacity .2s", opacity: "0", pointerEvents: "none",
+    });
+    for (const what of Object.keys(ICONS)) {
+      const b = document.createElement("button");
+      b.type = "button";
+      Object.assign(b.style, {
+        all: "unset", cursor: "pointer", width: "22px", height: "22px", borderRadius: "6px",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: "rgba(10, 10, 14, 0.75)", boxShadow: "0 1px 4px rgba(0,0,0,.45)",
+      });
+      b.append(icon(ICONS[what], what === "alwaysOnTop"));
+      b.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        ipcRenderer.send("shuriken:toggle", what);
+      });
+      buttons[what] = b;
+      bar.append(b);
+    }
+    document.documentElement.append(bar);
+  }
+
+  function render() {
+    const tb = state && state.toolbar;
+    if (!tb) {
+      if (bar) bar.style.display = "none";
+      return;
+    }
+    if (!document.documentElement) return;
+    if (!bar || !bar.isConnected) build();
+    bar.style.display = "flex";
+    const visible = hover;
+    bar.style.opacity = visible ? "1" : "0";
+    bar.style.pointerEvents = visible ? "auto" : "none";
+    for (const [what, b] of Object.entries(buttons)) {
+      const on = !!tb[what];
+      b.title = TITLES[what](on);
+      b.style.color = on ? "#ffffff" : "rgba(255,255,255,.35)";
+      b.style.outline = on ? "1px solid rgba(46, 204, 113, .85)" : "none";
+    }
+  }
+
+  ipcRenderer.on("shuriken:state", (_e, s) => {
+    state = s;
+    render();
+  });
+  ipcRenderer.invoke("shuriken:page-state").then((s) => {
+    state = s;
+    render();
+  }).catch(() => {});
+  // Con el ratón dentro de la ventana se muestran; al salir, se ocultan.
+  document.addEventListener("mouseover", () => {
+    if (!hover) {
+      hover = true;
+      render();
+    }
+  }, true);
+  document.addEventListener("mouseout", (e) => {
+    if (!e.relatedTarget) {
+      hover = false;
+      render();
+    }
+  }, true);
+  window.addEventListener("DOMContentLoaded", render);
+}
+
+// ---------- 4. Medidas al redimensionar (solo el frame principal) ----------
+// Etiqueta centrada con el tamaño de la ventana que desaparece al dejar de redimensionar.
+// Estilos en línea (CSSOM): funcionan también en páginas con CSP estricta, como SSN.
+if (window.top === window) {
+  let label = null;
+  let hideTimer = null;
+  ipcRenderer.on("shuriken:size", (_e, { width, height }) => {
+    if (!document.documentElement) return;
+    if (!label) {
+      label = document.createElement("div");
+      label.id = "shuriken-size";
+      Object.assign(label.style, {
+        position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)",
+        zIndex: "2147483647", pointerEvents: "none", padding: "6px 12px", borderRadius: "8px",
+        background: "rgba(10, 10, 14, 0.85)", color: "#fff", font: "700 15px/1.2 system-ui, sans-serif",
+        fontVariantNumeric: "tabular-nums", boxShadow: "0 2px 10px rgba(0,0,0,.5)",
+        transition: "opacity .25s", whiteSpace: "nowrap",
+      });
+    }
+    label.textContent = `${width} × ${height}`;
+    label.style.opacity = "1";
+    if (!label.isConnected) document.documentElement.append(label);
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      label.style.opacity = "0";
+      hideTimer = setTimeout(() => label.remove(), 300);
+    }, 1000);
+  });
+}
+
 if (window.top === window) {
   const EDGE = 6; // píxeles sensibles al borde para redimensionar
   const CURSORS = {
