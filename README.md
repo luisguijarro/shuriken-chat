@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <b>Linux</b> (cualquier distro · X11 y Wayland) · <b>Windows</b> 10/11 · Electron
+  <b>Linux</b> (cualquier distro · X11 y Wayland) · <b>Windows</b> 10/11 · <b>macOS</b> (Apple Silicon e Intel) · Electron
 </p>
 
 ---
@@ -76,10 +76,14 @@ Descarga el paquete de tu distribución desde *Releases* (cada versión incluye 
 | Cualquier otra | AppImage | `chmod +x shuriken-chat-*.AppImage && ./shuriken-chat-*.AppImage` |
 | **Windows 10/11** | `-setup.exe` | Ejecuta el instalador (puedes elegir la carpeta; crea accesos directos) |
 | **Windows 10/11** | `-portable.exe` | Sin instalar: ejecútalo desde cualquier carpeta o un USB |
+| **macOS** (Apple Silicon: M1–M4) | `-mac-arm64.dmg` | Abre el `.dmg` y arrastra **Shuriken Chat** a *Aplicaciones* |
+| **macOS** (Intel) | `-mac-x64.dmg` | Igual que el anterior |
 
 Los paquetes de Linux añaden **Shuriken Chat** al menú de aplicaciones (*Internet → Chat*) y el comando `shuriken-chat`. El AppImage no necesita instalarse.
 
 > **Windows avisa la primera vez** («Windows protegió su PC», de SmartScreen) porque la app no está firmada con un certificado de pago. Pulsa **Más información → Ejecutar de todas formas**. Solo pasa la primera vez.
+>
+> **macOS tampoco la reconoce la primera vez** («no se puede abrir porque Apple no puede comprobar…»), porque no está firmada con una cuenta de desarrollador de Apple. Ábrela una vez, cierra el aviso y ve a **Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente»**. Si lo prefieres, en la Terminal: `xattr -dr com.apple.quarantine "/Applications/Shuriken Chat.app"`. Solo hace falta la primera vez.
 
 ## Primeros pasos
 
@@ -285,6 +289,7 @@ rm ~/.config/shuriken-chat/twitch-auth.json
 | --- | --- |
 | Linux | `~/.config/shuriken-chat/` (o `$XDG_CONFIG_HOME/shuriken-chat/`) |
 | Windows | `%APPDATA%\shuriken-chat\` (p. ej. `C:\Users\<usuario>\AppData\Roaming\shuriken-chat\`) |
+| macOS | `~/Library/Application Support/shuriken-chat/` |
 
 - `config.json`: todos los ajustes, en JSON legible.
 - `twitch-auth.json`: la sesión de Twitch, **cifrada** (solo si inicias sesión).
@@ -327,10 +332,10 @@ npm start                       # ejecutar
 SHURIKEN_DEBUG=1 npm start      # con la consola de la página, un diagnóstico y los avisos de Chromium
 npm test                        # tests (node --test)
 npm run build                   # todos los paquetes (Linux y Windows) en dist/ + SHA256SUMS.txt
-npm run build -- deb pacman     # solo los formatos indicados (appimage, deb, rpm, pacman, windows)
+npm run build -- deb pacman     # solo los formatos indicados (appimage, deb, rpm, pacman, windows, mac)
 ```
 
-`npm run build` limpia `dist/`, genera los paquetes con electron-builder, calcula `SHA256SUMS.txt` y muestra un resumen. Funciona también en la terminal de VS Code. Desde Linux, el `.rpm` necesita `rpmbuild` (`sudo pacman -S rpm-tools`) y los de Windows, `wine` (`sudo pacman -S wine`); si falta alguno, se salta avisando.
+`npm run build` limpia `dist/`, genera los paquetes con electron-builder, calcula `SHA256SUMS.txt` y muestra un resumen. Funciona también en la terminal de VS Code. Desde Linux, el `.rpm` necesita `rpmbuild` (`sudo pacman -S rpm-tools`) y los de Windows, `wine` (`sudo pacman -S wine`); si falta alguno, se salta avisando. macOS solo se puede construir en un Mac: lo hace **GitHub Actions** (`.github/workflows/macos.yml`) en el espejo de GitHub, que además prueba que la app arranca.
 
 Para probar sin tocar tu configuración: `XDG_CONFIG_HOME=/tmp/prueba npm start`.
 
@@ -395,7 +400,7 @@ shuriken-chat/
 - [ ] Opción de mostrar «‹mensaje eliminado›» en vez de ocultar los mensajes borrados
 - [ ] Perfiles de apariencia (p. ej. «Escritorio», «Compacto»)
 - [x] Windows (instalador y portable)
-- [ ] macOS
+- [x] macOS (Apple Silicon e Intel)
 
 ## Créditos
 
