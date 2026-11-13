@@ -8,6 +8,7 @@ const {
 } = require("electron");
 const config = require("./config");
 const { SourceManager } = require("./sources");
+const { ObsServer, newKey } = require("./obs-server");
 const { lookupChannel } = require("./sources/twitch-assets");
 const { TwitchAuth, DEFAULT_CLIENT_ID } = require("./sources/twitch-auth");
 const { normalizeChannel } = require("./sources/twitch-parse");
@@ -36,6 +37,8 @@ let settingsWin = null;
 let tray = null;
 let currentUrl = null; // URL cargada en la ventana del chat
 let clickThrough = false; // no se guarda: así un reinicio siempre lo desactiva
+// Chat para OBS: servidor local que reproduce esta ventana (ver src/obs-server.js).
+const obs = new ObsServer({ uiDir: UI, snapshot: () => obsSnapshot() });
 const cssKeys = new Map(); // webContents -> clave del CSS inyectado
 
 // ---------------------------------------------------------------------------
@@ -131,8 +134,14 @@ async function replaceCss(wc, css) {
   }
 }
 
-const applyPageCss = () => replaceCss(chatWc(), config.pageCss(cfg.appearance));
-const applyFrameCss = () => replaceCss(frameWc(), config.frameCss(cfg.appearance));
+const applyPageCss = () => {
+  obs.broadcast("pagecss", config.pageCss(cfg.appearance));
+  return replaceCss(chatWc(), config.pageCss(cfg.appearance));
+};
+const applyFrameCss = () => {
+  pushObsLayout();
+  return replaceCss(frameWc(), config.frameCss(cfg.appearance));
+};
 
 /** Coloca la vista del chat dentro del marco. */
 function layoutChat() {
@@ -142,6 +151,7 @@ function layoutChat() {
   chatView.setBounds({ x: inset, y: inset, width: Math.max(0, w - 2 * inset), height: Math.max(0, h - 2 * inset) });
   chatView.setBorderRadius(innerRadius);
   pushPageState();
+  pushObsLayout();
 }
 
 function pushPageState() {
@@ -166,16 +176,22 @@ function loadChat() {
   currentUrl = chatTarget();
   const wc = chatWc();
   if (!wc) return;
+  pushObsLayout();
   if (currentUrl === NATIVE) wc.loadFile(path.join(UI, "chat.html"));
   else if (currentUrl) wc.loadURL(currentUrl);
   else wc.loadFile(path.join(UI, "welcome.html"));
 }
 
-/** Ajustes de aspecto que usa el chat propio (ui/chat.js). */
+/** Ajustes de aspecto que usa el chat propio (ui/chat.js), en la app y en OBS. */
 function pushChatStyle() {
-  if (!nativeChat()) return;
+  const style = chatStyle();
+  obs.broadcast("style", style);
+  if (nativeChat()) chatWc()?.send("shuriken:chat-style", style);
+}
+
+function chatStyle() {
   const a = cfg.appearance;
-  chatWc()?.send("shuriken:chat-style", {
+  return {
     darkMode: a.darkMode,
     bubble: a.bubble,
     textGlow: a.textGlow,
@@ -189,7 +205,76 @@ function pushChatStyle() {
     needs: cfg.sources.twitch.useAccount ? "login" : "channel",
     twoLines: a.twoLines,
     showPlatform: a.showPlatform,
-  });
+  };
+}
+
+// ---------------------------------------------------------------------------
+// OBS: la misma ventana, servida en http://127.0.0.1:<puerto>/obs?k=<clave>
+// ---------------------------------------------------------------------------
+
+/** Qué carga OBS dentro del marco: el mismo chat que la app (o SSN con el mismo CSS). */
+function obsSource() {
+  const key = encodeURIComponent(cfg.obs.key);
+  if (cfg.sources.mode === "native") return `chat.html?k=${key}`;
+  const url = config.chatUrl(cfg.appearance);
+  if (!url) return `welcome.html?k=${key}`;
+  // En un iframe de otro dominio no se puede inyectar CSS: SSN lo admite en la URL (&b64css).
+  const css = Buffer.from(encodeURIComponent(config.pageCss(cfg.appearance))).toString("base64");
+  return `${url}&b64css=${encodeURIComponent(css)}`;
+}
+
+/** Medidas y aspecto de la ventana para la página de OBS. */
+function obsLayout() {
+  const [width, height] = alive(chatWin) ? chatWin.getContentSize() : [cfg.window.width, cfg.window.height];
+  const { inset, innerRadius } = config.frameLayout(cfg.appearance);
+  return {
+    width, height, inset, innerRadius,
+    zoom: cfg.window.zoom,
+    frameCss: config.frameCss(cfg.appearance, ".frame"),
+    src: obsSource(),
+  };
+}
+
+function obsSnapshot() {
+  return { layout: obsLayout(), style: chatStyle(), pagecss: config.pageCss(cfg.appearance), backlog: sources.snapshot() };
+}
+
+let obsLayoutTimer = null;
+function pushObsLayout() {
+  if (obsLayoutTimer) return; // como mucho ~10 veces por segundo (al redimensionar)
+  obsLayoutTimer = setTimeout(() => {
+    obsLayoutTimer = null;
+    obs.broadcast("layout", obsLayout());
+  }, 100);
+}
+
+/** Arranca, reinicia o para el servidor según la configuración. */
+async function syncObsServer() {
+  if (cfg.obs.enabled) await obs.start(cfg.obs.port, cfg.obs.key);
+  else obs.stop();
+}
+
+/** Guarda solo la clave de OBS (no los ajustes que se estén previsualizando). */
+function persistObsKey() {
+  try {
+    const disk = config.load();
+    disk.obs.key = cfg.obs.key;
+    config.save(disk);
+  } catch (e) {
+    console.error("[shuriken] no se pudo guardar la clave de OBS:", e);
+  }
+}
+
+function obsInfo() {
+  const [width, height] = alive(chatWin) ? chatWin.getContentSize() : [cfg.window.width, cfg.window.height];
+  return {
+    enabled: cfg.obs.enabled,
+    running: cfg.obs.enabled && obs.running,
+    error: cfg.obs.enabled ? obs.error : null,
+    url: cfg.obs.enabled ? obs.url() : null,
+    width,
+    height,
+  };
 }
 
 function applySettings(settings) {
@@ -197,7 +282,9 @@ function applySettings(settings) {
   cfg.sources = s.sources;
   cfg.appearance = s.appearance;
   cfg.system = s.system;
+  cfg.obs = { ...s.obs, key: cfg.obs.key }; // la clave no viene del formulario
   sources.apply(cfg.sources);
+  syncObsServer();
   if (alive(chatWin)) {
     if (chatTarget() !== currentUrl) loadChat();
     else {
@@ -217,6 +304,7 @@ function applySettings(settings) {
 function setZoom(z) {
   cfg.window.zoom = Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)) * 100) / 100;
   chatWc()?.setZoomFactor(cfg.window.zoom);
+  pushObsLayout();
   persistWindow();
 }
 
@@ -618,6 +706,16 @@ function registerIpc() {
     const c = normalizeChannel(channel);
     return c ? lookupChannel(c) : { exists: false };
   });
+  // ---- OBS ----
+  settingsCmd("obs_info", () => obsInfo());
+  // Nueva clave: la URL anterior deja de funcionar (por si se ha filtrado).
+  settingsCmd("obs_new_key", async () => {
+    cfg.obs.key = newKey();
+    persistObsKey();
+    await syncObsServer();
+    return obsInfo();
+  });
+
   // Aplica los ajustes en vivo, sin guardarlos. Devuelve la URL resultante.
   settingsCmd("preview_settings", ({ settings }) => applySettings(settings));
   settingsCmd("save_settings", ({ settings }) => {
@@ -643,7 +741,14 @@ function start() {
   registerIpc();
   sources.on("event", (ev) => {
     if (nativeChat()) chatWc()?.send("shuriken:chat-event", ev);
+    obs.broadcast("event", ev);
   });
+  // OBS: clave propia de esta instalación (se crea la primera vez).
+  if (!cfg.obs.key) {
+    cfg.obs.key = newKey();
+    persistObsKey();
+  }
+  syncObsServer();
   // Estado del AutoMod por canal: se avisa a Configuración en cuanto se conoce.
   sources.on("moderation", () => {
     if (alive(settingsWin)) settingsWin.webContents.send("shuriken:auth-changed");
@@ -663,5 +768,6 @@ function start() {
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", () => {
   sources.stop();
+  obs.stop();
   persistWindow();
 });

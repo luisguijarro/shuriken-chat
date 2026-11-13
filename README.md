@@ -17,7 +17,7 @@
 
 ---
 
-> **Estado:** en desarrollo (v0.5.0). Plataformas soportadas: **Twitch**, **Kick** y **YouTube**.
+> **Estado:** en desarrollo (v0.6.0). Plataformas soportadas: **Twitch**, **Kick** y **YouTube**. Chat para **OBS** idéntico al del escritorio.
 >
 > Shuriken Chat es un proyecto independiente y **no está afiliado** a Social Stream Ninja.
 
@@ -32,6 +32,8 @@ Shuriken Chat muestra el chat de tus directos **en tu escritorio**, para leerlo 
 - **Social Stream Ninja**: muestra tu dock de SSN tal cual. Útil como respaldo o para plataformas que aún no soporta la app.
 
 ### Características
+
+- 🎥 **También en OBS**: añade una *Fuente de navegador* con la URL de *Configuración → OBS* y verás exactamente el mismo chat (mismo aspecto, mismas proporciones), aunque la escena no muestre el escritorio.
 
 - 🪟 **Sin bordes y transparente**: solo se ven los mensajes, que flotan sobre lo que tengas detrás.
 - 🖼️ **Marco a tu gusto**: margen alrededor del chat, borde con grosor y color, y esquinas redondeadas.
@@ -115,6 +117,7 @@ Shuriken Chat muestra el chat de tus directos **en tu escritorio**, para leerlo 
 | Conexión *(SSN)* | ID de sesión e idioma |
 | Aspecto del chat | Escala del texto, margen lateral, modo oscuro, burbujas, brillo en el texto, colores aleatorios, difuminar mensajes antiguos, ocultar la barra de controles de SSN |
 | Marco de la ventana | Margen alrededor del chat (10 px por defecto), esquinas redondeadas, grosor, color y opacidad del borde |
+| OBS | URL para una Fuente de navegador, tamaño recomendado, puerto y cambio de clave |
 | Fondo y transparencia | Fondo totalmente transparente, o color de fondo (*chroma*) con su opacidad, y opacidad de toda la ventana |
 | Avanzado | Parámetros extra de SSN, **CSS personalizado**, página base y opciones de sistema |
 | URL generada | La URL equivalente, por si quieres usarla también en OBS |
@@ -242,7 +245,8 @@ npm run build:appimage    # solo AppImage
 shuriken-chat/
 ├── assets/                      Icono fuente (SVG) e iconos PNG/ICO
 ├── ui/                          Páginas locales (sin frameworks)
-│   ├── chat.html/.css/.js       Chat propio (modo Plataformas)
+│   ├── chat.html/.css/.js       Chat propio (modo Plataformas), también usado por OBS
+│   ├── obs.html/.js, obs-bridge.js  Página para OBS
 │   ├── settings.html/.css/.js   Ventana de Configuración
 │   └── welcome.html             Pantalla inicial sin sesión
 ├── src/

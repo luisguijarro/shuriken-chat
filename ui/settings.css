@@ -167,3 +167,7 @@ body.tw-account .tw-anon-only { display: none !important; }
 #clientIdBox a { color: #bf94ff; }
 .chips.kick li { background: rgba(83, 252, 24, .12); border-color: rgba(83, 252, 24, .45); }
 .chips.youtube li { background: rgba(255, 0, 51, .12); border-color: rgba(255, 0, 51, .45); }
+
+/* ---------- OBS ---------- */
+body.obs-off .obs-on { display: none; }
+#obsSize { margin: 6px 0 0; font-size: 13px; }

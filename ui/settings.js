@@ -196,6 +196,37 @@ function setMode(mode) {
   document.body.classList.toggle("mode-ssn", mode === "ssn");
 }
 
+// ---------- OBS ----------
+
+async function refreshObs() {
+  let info;
+  try {
+    info = await invoke("obs_info");
+  } catch {
+    return;
+  }
+  document.body.classList.toggle("obs-off", !info.enabled);
+  if (document.activeElement !== $("obsUrl")) $("obsUrl").value = info.url || "";
+  $("obsSize").textContent = `Tamaño de la fuente en OBS: ${info.width} × ${info.height} (el de la ventana del chat). Si es otro, se escala sin deformarse.`;
+  if (info.error) message("obsMsg", info.error, "error");
+  else if ($("obsMsg").classList.contains("error")) message("obsMsg", "", "");
+}
+
+$("obsCopy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText($("obsUrl").value);
+    message("obsMsg", "URL copiada ✓ — pégala en una Fuente de navegador de OBS.", "ok");
+  } catch {
+    $("obsUrl").select();
+  }
+});
+$("obsNewKey").addEventListener("click", async () => {
+  await invoke("obs_new_key").catch(() => {});
+  await refreshObs();
+  message("obsMsg", "Clave cambiada: copia la nueva URL en OBS.", "ok");
+});
+setInterval(refreshObs, 1500); // el tamaño sigue a la ventana del chat
+
 // ---------- cuenta de Twitch (AutoMod) ----------
 
 let authState = { loggedIn: false, hasDefaultClientId: false, moderation: {} };
@@ -315,6 +346,8 @@ function fill(view) {
   $("extraParams").value = a.extraParams;
   $("customCss").value = a.customCss;
   $("baseUrl").value = a.baseUrl;
+  $("obsEnabled").checked = view.obs.enabled;
+  $("obsPort").value = view.obs.port;
   $("nativeWayland").checked = s.nativeWayland;
   $("compatRendering").checked = s.compatRendering;
   $("url").value = view.url || "";
@@ -362,6 +395,10 @@ function collect() {
     system: {
       nativeWayland: $("nativeWayland").checked,
       compatRendering: $("compatRendering").checked,
+    },
+    obs: {
+      enabled: $("obsEnabled").checked,
+      port: Number($("obsPort").value) || 8187,
     },
   };
 }
@@ -464,6 +501,7 @@ document.addEventListener("input", (e) => {
   if (["importUrl", "twitchInput", "kickInput", "youtubeInput"].includes(e.target.id)) return;
   if (e.target.name === "mode") setMode(getMode());
   if (e.target.name === "twitchMode") setTwitchMode(getTwitchMode());
+  if (e.target.id === "obsEnabled") document.body.classList.toggle("obs-off", !e.target.checked);
   schedulePreview();
 });
 
@@ -512,4 +550,4 @@ $("revert").addEventListener("click", async () => {
 });
 
 if (window.shuriken.onAuthChanged) window.shuriken.onAuthChanged(refreshAuth);
-load().then(refreshAuth).catch((e) => message("status", String(e), "error"));
+load().then(() => Promise.all([refreshAuth(), refreshObs()])).catch((e) => message("status", String(e), "error"));

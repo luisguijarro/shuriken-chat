@@ -120,6 +120,31 @@
     </section>
 
     <section>
+      <h2>OBS</h2>
+      <p class="muted">Añade en OBS una <b>Fuente de navegador</b> con esta URL: se verá exactamente igual que esta ventana, aunque la escena no muestre el escritorio.</p>
+      <div class="checks">
+        <label><input id="obsEnabled" type="checkbox" /> Activar el chat para OBS</label>
+      </div>
+      <div class="obs-on">
+        <div class="row">
+          <input id="obsUrl" type="text" readonly spellcheck="false" />
+          <button id="obsCopy" type="button" class="ghost">Copiar</button>
+        </div>
+        <p id="obsSize" class="muted"></p>
+        <p id="obsMsg" class="msg"></p>
+        <details>
+          <summary>Avanzado</summary>
+          <label class="field">
+            <span>Puerto</span>
+            <input id="obsPort" type="number" min="1024" max="65535" step="1" />
+          </label>
+          <p class="muted">La URL lleva una clave para que solo OBS pueda leer tu chat. Si la has compartido sin querer, cámbiala (tendrás que pegar la nueva URL en OBS).</p>
+          <button id="obsNewKey" type="button" class="ghost">Cambiar la clave</button>
+        </details>
+      </div>
+    </section>
+
+    <section>
       <h2>Aspecto del chat</h2>
       <label class="field">
         <span>Escala del texto <output id="scaleOut"></output></span>
