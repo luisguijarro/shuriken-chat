@@ -166,6 +166,8 @@ Una ventana aparte con tu webcam, con el **mismo borde y esquinas** que el chat 
 
 En Linux, la cámara virtual de OBS necesita el módulo `v4l2loopback` (OBS lo pide la primera vez).
 
+> **macOS** pide permiso la primera vez («Shuriken Chat quiere acceder a la cámara»). Si lo deniegas, actívalo en *Ajustes del Sistema → Privacidad y seguridad → Cámara*.
+>
 > La ventana de webcam solo usa **vídeo**: nunca el micrófono. El chat (y la página de SSN) siguen sin acceso a ninguna cámara.
 
 ## Uso de la ventana
@@ -174,7 +176,7 @@ En Linux, la cámara virtual de OBS necesita el módulo `v4l2loopback` (OBS lo p
 | --- | --- |
 | Mover la ventana | Arrastra desde cualquier punto del chat |
 | Mover sobre un enlace o botón | **Alt** + arrastrar |
-| Mover con el gestor de ventanas | **Shift** + arrastrar: lo mueve el escritorio, así funcionan las *tiles* de KDE Plasma (y Snap en Windows) |
+| Mover con el gestor de ventanas | **Shift** + arrastrar: lo mueve el escritorio, así funcionan las *tiles* de KDE Plasma. En Windows la mueve, pero no encaja con Snap (las ventanas transparentes no lo admiten) |
 | Redimensionar | Arrastra desde los bordes o las esquinas (se muestran las medidas) |
 | Abrir el menú | **Clic derecho** sobre el chat |
 | Siempre visible / Chat para OBS / Webcam | Botones 📌, 📡 y 🎥 de arriba a la izquierda (aparecen al pasar el ratón) |
