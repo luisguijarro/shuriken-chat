@@ -42,6 +42,11 @@ async function start() {
   stop();
   if (!current) return;
   video.classList.toggle("mirror", !!current.mirror);
+  if (current.systemDenied) {
+    // macOS: el sistema no deja usar la cámara a la app.
+    show("macOS no deja usar la cámara a Shuriken Chat. Actívalo en Ajustes del Sistema → Privacidad y seguridad → Cámara y vuelve a abrir esta ventana.");
+    return;
+  }
   show("Conectando con la cámara…");
   try {
     const dev = await resolveDevice(current);
@@ -76,7 +81,8 @@ navigator.mediaDevices.addEventListener("devicechange", () => {
 const api = window.shurikenWebcam;
 if (api) {
   api.onConfig((cfg) => {
-    const restart = !current || cfg.deviceId !== current.deviceId || cfg.deviceLabel !== current.deviceLabel || !stream;
+    const restart = !current || cfg.deviceId !== current.deviceId || cfg.deviceLabel !== current.deviceLabel ||
+      cfg.systemDenied !== current.systemDenied || !stream;
     current = cfg;
     if (restart) start();
     else video.classList.toggle("mirror", !!cfg.mirror);

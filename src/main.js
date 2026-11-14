@@ -5,6 +5,7 @@
 const path = require("path");
 const {
   app, BrowserWindow, Menu, Tray, WebContentsView, ipcMain, nativeImage, safeStorage, screen, session, shell,
+  systemPreferences,
 } = require("electron");
 const config = require("./config");
 const { SourceManager } = require("./sources");
@@ -180,7 +181,10 @@ function pushPageState() {
 }
 
 function pageState(wc) {
-  if (wc && wc === webcamWc()) return { locked: cfg.webcamWindow.locked, edges: true, toolbar: null };
+  if (wc && wc === webcamWc()) {
+    // La webcam solo tiene el botón de "Siempre visible" (el de OBS es del chat).
+    return { locked: cfg.webcamWindow.locked, edges: true, toolbar: { alwaysOnTop: cfg.webcamWindow.alwaysOnTop } };
+  }
   const locked = cfg.window.locked;
   if (wc === frameWc()) return { locked, edges: true };
   return {
@@ -189,7 +193,7 @@ function pageState(wc) {
     // llega casi hasta el borde (margen + borde menores que la zona sensible).
     edges: config.frameLayout(cfg.appearance).inset < EDGE,
     // Botones de arriba a la izquierda (solo en la vista del chat; con "atravesar clics" no se ven).
-    toolbar: clickThrough ? null : { alwaysOnTop: cfg.window.alwaysOnTop, obs: cfg.obs.enabled },
+    toolbar: clickThrough ? null : { alwaysOnTop: cfg.window.alwaysOnTop, obs: cfg.obs.enabled, webcam: cfg.webcam.enabled },
   };
 }
 
@@ -326,6 +330,7 @@ function applySettings(settings) {
   sources.apply(cfg.sources);
   syncObsServer();
   syncWebcamWindow();
+  pushPageState(); // botones de la ventana (OBS, webcam)
   if (alive(chatWin)) {
     if (chatTarget() !== currentUrl) loadChat();
     else {
@@ -721,14 +726,38 @@ function syncWebcamWindow() {
   else if (alive(webcamWin)) applyWebcam();
 }
 
+/** macOS exige permiso del sistema para la cámara (Privacidad y seguridad → Cámara).
+ *  La primera vez se pregunta al usuario; sin permiso, el sistema bloquea la cámara.
+ *  En Linux y Windows no hay nada que pedir. Devuelve true si se puede usar. */
+let cameraAccess = null;
+function ensureCameraAccess() {
+  if (process.platform !== "darwin") return Promise.resolve(true);
+  const status = systemPreferences.getMediaAccessStatus("camera");
+  if (status === "granted") return Promise.resolve(true);
+  if (status !== "not-determined") {
+    console.log(`[shuriken] permiso de cámara de macOS: ${status}`);
+    return Promise.resolve(false);
+  }
+  if (!cameraAccess) {
+    console.log("[shuriken] permiso de cámara de macOS: se pregunta al usuario");
+    cameraAccess = systemPreferences.askForMediaAccess("camera")
+      .catch(() => false)
+      .finally(() => { cameraAccess = null; });
+  }
+  return cameraAccess;
+}
+
 /** Marco (mismo aspecto que el chat) y dispositivo/espejo elegidos. */
 function applyWebcam() {
   const wc = webcamWc();
   if (!wc) return;
   replaceCss(wc, config.webcamCss(cfg.appearance));
-  const { deviceId, deviceLabel, mirror } = cfg.webcam;
-  wc.send("shuriken:webcam-config", { deviceId, deviceLabel, mirror });
   wc.send("shuriken:state", pageState(wc));
+  ensureCameraAccess().then((ok) => {
+    if (wc.isDestroyed() || wc !== webcamWc()) return;
+    const { deviceId, deviceLabel, mirror } = cfg.webcam;
+    wc.send("shuriken:webcam-config", { deviceId, deviceLabel, mirror, systemDenied: !ok });
+  });
 }
 
 /** Guarda solo la parte de la webcam que se cambia desde su menú (no lo que se previsualiza). */
@@ -747,6 +776,15 @@ function setWebcamEnabled(on) {
   cfg.webcam.enabled = !!on;
   persistWebcam({ enabled: cfg.webcam.enabled });
   syncWebcamWindow();
+  pushPageState(); // botón de la webcam en el chat
+}
+
+function toggleWebcamOnTop() {
+  const w = cfg.webcamWindow;
+  w.alwaysOnTop = !w.alwaysOnTop;
+  setOnTop(webcamWin, w.alwaysOnTop);
+  persistWindow();
+  pushPageState();
 }
 
 function webcamMenu() {
@@ -756,11 +794,7 @@ function webcamMenu() {
     { type: "separator" },
     {
       label: "Siempre visible", type: "checkbox", checked: w.alwaysOnTop,
-      click: () => {
-        w.alwaysOnTop = !w.alwaysOnTop;
-        setOnTop(webcamWin, w.alwaysOnTop);
-        persistWindow();
-      },
+      click: toggleWebcamOnTop,
     },
     {
       label: "Bloquear posición y tamaño", type: "checkbox", checked: w.locked,
@@ -890,8 +924,11 @@ function registerIpc() {
   // Botones de la ventana del chat (arriba a la izquierda).
   ipcMain.on("shuriken:toggle", (e, what) => {
     if (!fromChat(e) || e.senderFrame !== e.sender.mainFrame) return;
-    if (what === "alwaysOnTop") toggleAlwaysOnTop();
+    if (e.sender === webcamWc()) {
+      if (what === "alwaysOnTop") toggleWebcamOnTop();
+    } else if (what === "alwaysOnTop") toggleAlwaysOnTop();
     else if (what === "obs") setObsEnabled(!cfg.obs.enabled);
+    else if (what === "webcam") setWebcamEnabled(!cfg.webcam.enabled);
   });
   ipcMain.handle("shuriken:page-state", (e) => (fromChat(e) ? pageState(e.sender) : null));
   // Aprobar/denegar un mensaje del AutoMod: solo desde NUESTRA página del chat (nunca desde SSN).

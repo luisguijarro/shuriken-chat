@@ -153,9 +153,9 @@ El chat para OBS se activa o se para desde *Configuración → OBS*, el botón �
 
 ## Ventana de webcam
 
-Una ventana aparte con tu webcam, con el **mismo borde y esquinas** que el chat (sin margen: la imagen llega hasta el borde). Se mueve, se redimensiona, tiene su propio «siempre visible» y «bloquear», y su menú con el **clic derecho** (Configuración, espejo, ocultar…).
+Una ventana aparte con tu webcam, con el **mismo borde y esquinas** que el chat (sin margen: la imagen llega hasta el borde). Se mueve, se redimensiona, tiene su propio «siempre visible» (botón 📌 arriba a la izquierda al pasar el ratón) y «bloquear», y su menú con el **clic derecho** (Configuración, espejo, ocultar…).
 
-1. En **Configuración → Webcam**, elige la cámara y marca **Mostrar la ventana de webcam**.
+1. En **Configuración → Webcam**, elige la cámara y marca **Mostrar la ventana de webcam** (después puedes mostrarla u ocultarla con el botón 🎥 del chat).
 2. Si quieres verte como en un espejo, marca **Voltear horizontalmente**.
 
 **¿Usas la webcam en OBS?** En Windows y en Linux una cámara normalmente solo la puede usar **una aplicación a la vez**: si OBS la tiene, las demás no pueden abrirla. La solución es pedírsela a OBS con su **cámara virtual**:
@@ -166,6 +166,8 @@ Una ventana aparte con tu webcam, con el **mismo borde y esquinas** que el chat 
 
 En Linux, la cámara virtual de OBS necesita el módulo `v4l2loopback` (OBS lo pide la primera vez).
 
+> **macOS** pide permiso la primera vez («Shuriken Chat quiere acceder a la cámara»). Si lo deniegas, actívalo en *Ajustes del Sistema → Privacidad y seguridad → Cámara*.
+>
 > La ventana de webcam solo usa **vídeo**: nunca el micrófono. El chat (y la página de SSN) siguen sin acceso a ninguna cámara.
 
 ## Uso de la ventana
@@ -174,15 +176,16 @@ En Linux, la cámara virtual de OBS necesita el módulo `v4l2loopback` (OBS lo p
 | --- | --- |
 | Mover la ventana | Arrastra desde cualquier punto del chat |
 | Mover sobre un enlace o botón | **Alt** + arrastrar |
+| Mover con el gestor de ventanas | **Shift** + arrastrar: lo mueve el escritorio, así funcionan las *tiles* de KDE Plasma. En Windows la mueve, pero no encaja con Snap (las ventanas transparentes no lo admiten) |
 | Redimensionar | Arrastra desde los bordes o las esquinas (se muestran las medidas) |
 | Abrir el menú | **Clic derecho** sobre el chat |
-| Siempre visible / Chat para OBS | Botones 📌 y 📡 de arriba a la izquierda (aparecen al pasar el ratón) |
+| Siempre visible / Chat para OBS / Webcam | Botones 📌, 📡 y 🎥 de arriba a la izquierda (aparecen al pasar el ratón) |
 | Ver el estado de las plataformas | Iconos de arriba a la derecha (pasa el ratón para el detalle) |
 | Desactivar *atravesar clics* | Icono de la **bandeja del sistema** (o reinicia la app) |
 
 **Iconos de estado** (arriba a la derecha, solo de las plataformas configuradas, del tamaño de una letra del chat): 🟢 conectado · 🟡 conectando o reconectando · ⚪ sin directo (YouTube esperando) · 🔴 error (por ejemplo, un canal que no existe).
 
-**Botones** (arriba a la izquierda, solo al pasar el ratón, para que no salgan en el directo): 📌 **Siempre visible** y 📡 **Chat para OBS**. Atenuados si están desactivados.
+**Botones** (arriba a la izquierda, solo al pasar el ratón, para que no salgan en el directo): 📌 **Siempre visible**, 📡 **Chat para OBS** y 🎥 **mostrar u ocultar la ventana de webcam**. Atenuados si están desactivados.
 
 ### Menú del clic derecho
 

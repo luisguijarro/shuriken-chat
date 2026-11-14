@@ -76,7 +76,7 @@ document.addEventListener("contextmenu", (e) => {
 
 // ---------- 3. Mover y redimensionar (solo el frame principal) ----------
 // ---------- 5. Botones de la ventana (arriba a la izquierda, solo el frame principal) ----------
-// Siempre visible y chat para OBS. Solo aparecen con el ratón encima de la ventana: son
+// Siempre visible, chat para OBS y ventana de webcam (en la webcam, solo Siempre visible). Solo aparecen con el ratón encima de la ventana: son
 // controles de la app, no parte del chat (así no salen en el directo ni difieren de OBS).
 if (window.top === window) {
   const SVG = "http://www.w3.org/2000/svg";
@@ -86,10 +86,14 @@ if (window.top === window) {
     // Emisión (punto y ondas)
     obs: ["M12 10.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z",
       "M8.1 8.1a5.5 5.5 0 0 0 0 7.8M15.9 8.1a5.5 5.5 0 0 1 0 7.8M5.3 5.3a9.5 9.5 0 0 0 0 13.4M18.7 5.3a9.5 9.5 0 0 1 0 13.4"],
+    // Videocámara
+    webcam: ["M3.5 7h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z", "M16.5 10.6 22 7.5v9l-5.5-3.1z"],
   };
+  const FILLED = new Set(["alwaysOnTop", "webcam"]);
   const TITLES = {
     alwaysOnTop: (on) => `Siempre visible: ${on ? "activado" : "desactivado"} (clic para cambiar)`,
     obs: (on) => `Chat para OBS: ${on ? "activo" : "parado"} (clic para cambiar)`,
+    webcam: (on) => `Ventana de webcam: ${on ? "visible" : "oculta"} (clic para cambiar)`,
   };
   let bar = null;
   const buttons = {};
@@ -125,7 +129,7 @@ if (window.top === window) {
         display: "flex", alignItems: "center", justifyContent: "center",
         background: "rgba(10, 10, 14, 0.75)", boxShadow: "0 1px 4px rgba(0,0,0,.45)",
       });
-      b.append(icon(ICONS[what], what === "alwaysOnTop"));
+      b.append(icon(ICONS[what], FILLED.has(what)));
       b.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -150,6 +154,8 @@ if (window.top === window) {
     bar.style.opacity = visible ? "1" : "0";
     bar.style.pointerEvents = visible ? "auto" : "none";
     for (const [what, b] of Object.entries(buttons)) {
+      // Cada ventana muestra solo sus botones (la webcam, solo "Siempre visible").
+      b.style.display = what in tb ? "flex" : "none";
       const on = !!tb[what];
       b.title = TITLES[what](on);
       b.style.color = on ? "#ffffff" : "rgba(255,255,255,.35)";
@@ -276,4 +282,45 @@ if (window.top === window) {
   };
   window.addEventListener("mouseup", stop, true);
   window.addEventListener("blur", stop);
+
+  // ---- Shift + arrastrar: lo mueve el GESTOR DE VENTANAS ----
+  // El arrastre normal lo hace la app (mueve la ventana siguiendo al ratón) y por eso el
+  // escritorio no lo ve como un arrastre: en KDE no salen las "tiles" con Shift, ni el
+  // ajuste a los bordes. Con Shift pulsado se pone encima una capa invisible marcada como
+  // región de arrastre (-webkit-app-region: drag): al pulsar ahí, Chromium le pide al
+  // gestor de ventanas (KWin, Windows, macOS) que mueva la ventana él, con sus tiles/Snap.
+  // Esa capa no deja pasar clics, así que solo existe mientras Shift está pulsado y se
+  // retira sola si dejan de llegar eventos (para que los clics nunca queden bloqueados).
+  const NATIVE_TTL_MS = 1000;
+  let nativeLayer = null;
+  let nativeTimer = null;
+
+  function nativeDrag(on) {
+    if (on && (locked || dragging)) on = false;
+    clearTimeout(nativeTimer);
+    if (!on) {
+      if (nativeLayer && nativeLayer.isConnected) nativeLayer.remove();
+      return;
+    }
+    if (!document.documentElement) return;
+    if (!nativeLayer) {
+      nativeLayer = document.createElement("div");
+      nativeLayer.id = "shuriken-native-drag";
+      Object.assign(nativeLayer.style, {
+        position: "fixed", inset: "0", zIndex: "2147483645", background: "transparent", cursor: "move",
+      });
+      nativeLayer.style.setProperty("-webkit-app-region", "drag");
+    }
+    if (!nativeLayer.isConnected) document.documentElement.append(nativeLayer);
+    nativeTimer = setTimeout(() => nativeDrag(false), NATIVE_TTL_MS);
+  }
+
+  document.addEventListener("mousemove", (e) => nativeDrag(e.shiftKey), true);
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Shift") nativeDrag(true);
+  }, true);
+  window.addEventListener("keyup", (e) => {
+    if (e.key === "Shift") nativeDrag(false);
+  }, true);
+  window.addEventListener("blur", () => nativeDrag(false));
 }
