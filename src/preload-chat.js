@@ -76,7 +76,7 @@ document.addEventListener("contextmenu", (e) => {
 
 // ---------- 3. Mover y redimensionar (solo el frame principal) ----------
 // ---------- 5. Botones de la ventana (arriba a la izquierda, solo el frame principal) ----------
-// Siempre visible y chat para OBS (en la webcam, solo Siempre visible). Solo aparecen con el ratón encima de la ventana: son
+// Siempre visible, chat para OBS y ventana de webcam (en la webcam, solo Siempre visible). Solo aparecen con el ratón encima de la ventana: son
 // controles de la app, no parte del chat (así no salen en el directo ni difieren de OBS).
 if (window.top === window) {
   const SVG = "http://www.w3.org/2000/svg";
@@ -86,10 +86,14 @@ if (window.top === window) {
     // Emisión (punto y ondas)
     obs: ["M12 10.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z",
       "M8.1 8.1a5.5 5.5 0 0 0 0 7.8M15.9 8.1a5.5 5.5 0 0 1 0 7.8M5.3 5.3a9.5 9.5 0 0 0 0 13.4M18.7 5.3a9.5 9.5 0 0 1 0 13.4"],
+    // Videocámara
+    webcam: ["M3.5 7h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z", "M16.5 10.6 22 7.5v9l-5.5-3.1z"],
   };
+  const FILLED = new Set(["alwaysOnTop", "webcam"]);
   const TITLES = {
     alwaysOnTop: (on) => `Siempre visible: ${on ? "activado" : "desactivado"} (clic para cambiar)`,
     obs: (on) => `Chat para OBS: ${on ? "activo" : "parado"} (clic para cambiar)`,
+    webcam: (on) => `Ventana de webcam: ${on ? "visible" : "oculta"} (clic para cambiar)`,
   };
   let bar = null;
   const buttons = {};
@@ -125,7 +129,7 @@ if (window.top === window) {
         display: "flex", alignItems: "center", justifyContent: "center",
         background: "rgba(10, 10, 14, 0.75)", boxShadow: "0 1px 4px rgba(0,0,0,.45)",
       });
-      b.append(icon(ICONS[what], what === "alwaysOnTop"));
+      b.append(icon(ICONS[what], FILLED.has(what)));
       b.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();

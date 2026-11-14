@@ -192,7 +192,7 @@ function pageState(wc) {
     // llega casi hasta el borde (margen + borde menores que la zona sensible).
     edges: config.frameLayout(cfg.appearance).inset < EDGE,
     // Botones de arriba a la izquierda (solo en la vista del chat; con "atravesar clics" no se ven).
-    toolbar: clickThrough ? null : { alwaysOnTop: cfg.window.alwaysOnTop, obs: cfg.obs.enabled },
+    toolbar: clickThrough ? null : { alwaysOnTop: cfg.window.alwaysOnTop, obs: cfg.obs.enabled, webcam: cfg.webcam.enabled },
   };
 }
 
@@ -329,6 +329,7 @@ function applySettings(settings) {
   sources.apply(cfg.sources);
   syncObsServer();
   syncWebcamWindow();
+  pushPageState(); // botones de la ventana (OBS, webcam)
   if (alive(chatWin)) {
     if (chatTarget() !== currentUrl) loadChat();
     else {
@@ -750,6 +751,7 @@ function setWebcamEnabled(on) {
   cfg.webcam.enabled = !!on;
   persistWebcam({ enabled: cfg.webcam.enabled });
   syncWebcamWindow();
+  pushPageState(); // botón de la webcam en el chat
 }
 
 function toggleWebcamOnTop() {
@@ -901,6 +903,7 @@ function registerIpc() {
       if (what === "alwaysOnTop") toggleWebcamOnTop();
     } else if (what === "alwaysOnTop") toggleAlwaysOnTop();
     else if (what === "obs") setObsEnabled(!cfg.obs.enabled);
+    else if (what === "webcam") setWebcamEnabled(!cfg.webcam.enabled);
   });
   ipcMain.handle("shuriken:page-state", (e) => (fromChat(e) ? pageState(e.sender) : null));
   // Aprobar/denegar un mensaje del AutoMod: solo desde NUESTRA página del chat (nunca desde SSN).
