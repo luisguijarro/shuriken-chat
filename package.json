@@ -155,6 +155,9 @@
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "darkModeSupport": true,
+      "extendInfo": {
+        "NSCameraUsageDescription": "Shuriken Chat usa la cámara solo para mostrarla en su ventana de webcam, si la activas en Configuración → Webcam."
+      },
       "artifactName": "shuriken-chat-${version}-mac-${arch}.${ext}"
     },
     "dmg": {

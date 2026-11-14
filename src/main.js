@@ -5,6 +5,7 @@
 const path = require("path");
 const {
   app, BrowserWindow, Menu, Tray, WebContentsView, ipcMain, nativeImage, safeStorage, screen, session, shell,
+  systemPreferences,
 } = require("electron");
 const config = require("./config");
 const { SourceManager } = require("./sources");
@@ -725,14 +726,38 @@ function syncWebcamWindow() {
   else if (alive(webcamWin)) applyWebcam();
 }
 
+/** macOS exige permiso del sistema para la cámara (Privacidad y seguridad → Cámara).
+ *  La primera vez se pregunta al usuario; sin permiso, el sistema bloquea la cámara.
+ *  En Linux y Windows no hay nada que pedir. Devuelve true si se puede usar. */
+let cameraAccess = null;
+function ensureCameraAccess() {
+  if (process.platform !== "darwin") return Promise.resolve(true);
+  const status = systemPreferences.getMediaAccessStatus("camera");
+  if (status === "granted") return Promise.resolve(true);
+  if (status !== "not-determined") {
+    console.log(`[shuriken] permiso de cámara de macOS: ${status}`);
+    return Promise.resolve(false);
+  }
+  if (!cameraAccess) {
+    console.log("[shuriken] permiso de cámara de macOS: se pregunta al usuario");
+    cameraAccess = systemPreferences.askForMediaAccess("camera")
+      .catch(() => false)
+      .finally(() => { cameraAccess = null; });
+  }
+  return cameraAccess;
+}
+
 /** Marco (mismo aspecto que el chat) y dispositivo/espejo elegidos. */
 function applyWebcam() {
   const wc = webcamWc();
   if (!wc) return;
   replaceCss(wc, config.webcamCss(cfg.appearance));
-  const { deviceId, deviceLabel, mirror } = cfg.webcam;
-  wc.send("shuriken:webcam-config", { deviceId, deviceLabel, mirror });
   wc.send("shuriken:state", pageState(wc));
+  ensureCameraAccess().then((ok) => {
+    if (wc.isDestroyed() || wc !== webcamWc()) return;
+    const { deviceId, deviceLabel, mirror } = cfg.webcam;
+    wc.send("shuriken:webcam-config", { deviceId, deviceLabel, mirror, systemDenied: !ok });
+  });
 }
 
 /** Guarda solo la parte de la webcam que se cambia desde su menú (no lo que se previsualiza). */

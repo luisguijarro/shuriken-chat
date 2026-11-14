@@ -63,6 +63,25 @@ jobs:
             echo "La app no llegó a cargar el chat"; tail -60 arranque.log; exit 1
           fi
 
+      - name: Prueba de la webcam (permiso de cámara de macOS)
+        run: |
+          APP="dist/mac-arm64/Shuriken Chat.app"
+          # Sin NSCameraUsageDescription, macOS cierra la app al usar la cámara.
+          plutil -p "$APP/Contents/Info.plist" | grep NSCameraUsageDescription | tee webcam.log
+          CFG="$HOME/Library/Application Support/shuriken-chat"
+          echo '{"sources":{"mode":"native","twitch":{"useAccount":false,"channels":["xqc"]}},"window":{"x":200,"y":120,"width":420,"height":560},"webcam":{"enabled":true,"deviceLabel":"fake_device_0","mirror":true},"webcamWindow":{"x":700,"y":120,"width":480,"height":360}}' > "$CFG/config.json"
+          SHURIKEN_DEBUG=1 "$APP/Contents/MacOS/Shuriken Chat" --use-fake-device-for-media-stream >> webcam.log 2>&1 &
+          PID=$!
+          sleep 30
+          screencapture -x captura-webcam.png || true
+          if kill -0 $PID 2>/dev/null; then
+            echo "La app sigue abierta con la webcam activada" | tee -a webcam.log
+            kill $PID || true
+          else
+            echo "La app se ha cerrado" | tee -a webcam.log; tail -60 webcam.log; exit 1
+          fi
+          grep -E "permiso de cámara|\[shuriken\]" webcam.log | head -20 || true
+
       - name: Publicar resultados de prueba (rama macos)
         if: always() && !startsWith(github.ref, 'refs/tags/')
         env:
@@ -70,7 +89,7 @@ jobs:
         run: |
           TAG=pruebas-macos
           gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
-          FILES=$(ls dist/*.dmg tests.log build.log firma.log arranque.log captura-macos.png 2>/dev/null || true)
+          FILES=$(ls dist/*.dmg tests.log build.log firma.log arranque.log captura-macos.png webcam.log captura-webcam.png 2>/dev/null || true)
           gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
             --title "Pruebas de macOS (${GITHUB_REF_NAME})" \
             --notes "Generado automáticamente por GitHub Actions para el commit ${GITHUB_SHA}. Solo para pruebas." \
