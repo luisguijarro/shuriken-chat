@@ -198,7 +198,7 @@ Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm
 
 ## Estado actual
 
-- 🚧 Rama `arrastre` (v0.9.1): Shift + arrastrar (KDE probado por el usuario), botón 📌 en la webcam, botón 🎥 en el chat, permiso de cámara en macOS. Probado: Linux (cámara simulada), Windows VM (webcam, 📌, 🎥, Shift mueve sin Snap, arrastre normal), macOS en CI (webcam con cámara simulada, app sigue abierta). Pendiente: PR y release.
+- 🚧 Rama `arrastre` (v0.9.1): Shift + arrastrar (KDE probado por el usuario), botón 📌 en la webcam, botón 🎥 en el chat, permiso de cámara en macOS. Probado: Linux (cámara simulada), Windows VM (webcam, 📌, 🎥, Shift mueve sin Snap, arrastre normal), macOS en CI (webcam con cámara simulada, app sigue abierta). PR abierta; pendiente: fusionar y release.
 - 🚧 Rama `webcam` (v0.9.0, parte de `licencia`): ventana de webcam. Probado con la cámara simulada (lista con nombres, vídeo 1920×1080, espejo, marco, permisos). Pendiente: prueba del usuario con la cámara virtual de OBS, PR y release.
 
 - ✅ v0.8.0 (macOS) fusionada y publicada en Forgejo y GitHub con los 10 paquetes.
