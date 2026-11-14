@@ -153,7 +153,7 @@ El chat para OBS se activa o se para desde *Configuración → OBS*, el botón �
 
 ## Ventana de webcam
 
-Una ventana aparte con tu webcam, con el **mismo borde y esquinas** que el chat (sin margen: la imagen llega hasta el borde). Se mueve, se redimensiona, tiene su propio «siempre visible» y «bloquear», y su menú con el **clic derecho** (Configuración, espejo, ocultar…).
+Una ventana aparte con tu webcam, con el **mismo borde y esquinas** que el chat (sin margen: la imagen llega hasta el borde). Se mueve, se redimensiona, tiene su propio «siempre visible» (botón 📌 arriba a la izquierda al pasar el ratón) y «bloquear», y su menú con el **clic derecho** (Configuración, espejo, ocultar…).
 
 1. En **Configuración → Webcam**, elige la cámara y marca **Mostrar la ventana de webcam**.
 2. Si quieres verte como en un espejo, marca **Voltear horizontalmente**.
@@ -174,6 +174,7 @@ En Linux, la cámara virtual de OBS necesita el módulo `v4l2loopback` (OBS lo p
 | --- | --- |
 | Mover la ventana | Arrastra desde cualquier punto del chat |
 | Mover sobre un enlace o botón | **Alt** + arrastrar |
+| Mover con el gestor de ventanas | **Shift** + arrastrar: lo mueve el escritorio, así funcionan las *tiles* de KDE Plasma (y Snap en Windows) |
 | Redimensionar | Arrastra desde los bordes o las esquinas (se muestran las medidas) |
 | Abrir el menú | **Clic derecho** sobre el chat |
 | Siempre visible / Chat para OBS | Botones 📌 y 📡 de arriba a la izquierda (aparecen al pasar el ratón) |

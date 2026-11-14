@@ -76,7 +76,7 @@ document.addEventListener("contextmenu", (e) => {
 
 // ---------- 3. Mover y redimensionar (solo el frame principal) ----------
 // ---------- 5. Botones de la ventana (arriba a la izquierda, solo el frame principal) ----------
-// Siempre visible y chat para OBS. Solo aparecen con el ratón encima de la ventana: son
+// Siempre visible y chat para OBS (en la webcam, solo Siempre visible). Solo aparecen con el ratón encima de la ventana: son
 // controles de la app, no parte del chat (así no salen en el directo ni difieren de OBS).
 if (window.top === window) {
   const SVG = "http://www.w3.org/2000/svg";
@@ -150,6 +150,8 @@ if (window.top === window) {
     bar.style.opacity = visible ? "1" : "0";
     bar.style.pointerEvents = visible ? "auto" : "none";
     for (const [what, b] of Object.entries(buttons)) {
+      // Cada ventana muestra solo sus botones (la webcam, solo "Siempre visible").
+      b.style.display = what in tb ? "flex" : "none";
       const on = !!tb[what];
       b.title = TITLES[what](on);
       b.style.color = on ? "#ffffff" : "rgba(255,255,255,.35)";

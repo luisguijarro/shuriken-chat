@@ -180,7 +180,10 @@ function pushPageState() {
 }
 
 function pageState(wc) {
-  if (wc && wc === webcamWc()) return { locked: cfg.webcamWindow.locked, edges: true, toolbar: null };
+  if (wc && wc === webcamWc()) {
+    // La webcam solo tiene el botón de "Siempre visible" (el de OBS es del chat).
+    return { locked: cfg.webcamWindow.locked, edges: true, toolbar: { alwaysOnTop: cfg.webcamWindow.alwaysOnTop } };
+  }
   const locked = cfg.window.locked;
   if (wc === frameWc()) return { locked, edges: true };
   return {
@@ -749,6 +752,14 @@ function setWebcamEnabled(on) {
   syncWebcamWindow();
 }
 
+function toggleWebcamOnTop() {
+  const w = cfg.webcamWindow;
+  w.alwaysOnTop = !w.alwaysOnTop;
+  setOnTop(webcamWin, w.alwaysOnTop);
+  persistWindow();
+  pushPageState();
+}
+
 function webcamMenu() {
   const w = cfg.webcamWindow;
   return Menu.buildFromTemplate([
@@ -756,11 +767,7 @@ function webcamMenu() {
     { type: "separator" },
     {
       label: "Siempre visible", type: "checkbox", checked: w.alwaysOnTop,
-      click: () => {
-        w.alwaysOnTop = !w.alwaysOnTop;
-        setOnTop(webcamWin, w.alwaysOnTop);
-        persistWindow();
-      },
+      click: toggleWebcamOnTop,
     },
     {
       label: "Bloquear posición y tamaño", type: "checkbox", checked: w.locked,
@@ -890,7 +897,9 @@ function registerIpc() {
   // Botones de la ventana del chat (arriba a la izquierda).
   ipcMain.on("shuriken:toggle", (e, what) => {
     if (!fromChat(e) || e.senderFrame !== e.sender.mainFrame) return;
-    if (what === "alwaysOnTop") toggleAlwaysOnTop();
+    if (e.sender === webcamWc()) {
+      if (what === "alwaysOnTop") toggleWebcamOnTop();
+    } else if (what === "alwaysOnTop") toggleAlwaysOnTop();
     else if (what === "obs") setObsEnabled(!cfg.obs.enabled);
   });
   ipcMain.handle("shuriken:page-state", (e) => (fromChat(e) ? pageState(e.sender) : null));
