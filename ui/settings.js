@@ -426,6 +426,8 @@ function fill(view) {
   $("hideScrollbar").checked = a.hideScrollbar;
   $("hideMenu").checked = a.hideMenu;
   $("showPlatform").checked = a.showPlatform;
+  $("showTime").checked = a.showTime;
+  $("scrollIndicator").checked = a.scrollIndicator;
   $("extraParams").value = a.extraParams;
   $("customCss").value = a.customCss;
   $("baseUrl").value = a.baseUrl;
@@ -478,6 +480,8 @@ function collect() {
       hideScrollbar: $("hideScrollbar").checked,
       hideMenu: $("hideMenu").checked,
       showPlatform: $("showPlatform").checked,
+      showTime: $("showTime").checked,
+      scrollIndicator: $("scrollIndicator").checked,
       customCss: $("customCss").value,
     },
     system: {

@@ -86,6 +86,14 @@ html.bubble .msg {
   margin-right: 0.3em;
 }
 html.noplatform .platform { display: none; }
+.time {
+  font-size: 0.8em;
+  font-weight: 400;
+  opacity: 0.6;
+  margin-right: 0.4em;
+  font-variant-numeric: tabular-nums;
+}
+html.notime .time { display: none; }
 .name { font-weight: 700; }
 .sep { margin-right: 0.3em; }
 /* "Texto debajo del nombre" */

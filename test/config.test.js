@@ -81,3 +81,14 @@ test("webcam: valores por defecto y CSS con el mismo borde que el chat, sin marg
   // Sin margen: el vídeo empieza justo dentro del borde (2 px) y sus esquinas son concéntricas (20 - 2).
   assert.match(css, /#view,#msg\{left:2px!important;top:2px!important;right:2px!important;bottom:2px!important;border-radius:18px;\}/);
 });
+
+test("hora e indicador de desplazamiento: activados por defecto y sin efecto en la URL de SSN", () => {
+  const a = config.normalize({}).appearance;
+  assert.strictEqual(a.showTime, true);
+  assert.strictEqual(a.scrollIndicator, true);
+  const conf = config.normalize({ appearance: { showTime: false, scrollIndicator: false } }).appearance;
+  assert.strictEqual(conf.showTime, false);
+  assert.strictEqual(conf.scrollIndicator, false);
+  const url = config.chatUrl(appearance({ session: "pruebaXYZ", showTime: false, scrollIndicator: false }));
+  assert.strictEqual(url, config.chatUrl(appearance({ session: "pruebaXYZ" })));
+});

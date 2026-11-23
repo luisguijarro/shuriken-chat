@@ -194,6 +194,8 @@ function pageState(wc) {
     edges: config.frameLayout(cfg.appearance).inset < EDGE,
     // Botones de arriba a la izquierda (solo en la vista del chat; con "atravesar clics" no se ven).
     toolbar: clickThrough ? null : { alwaysOnTop: cfg.window.alwaysOnTop, obs: cfg.obs.enabled, webcam: cfg.webcam.enabled },
+    // Indicador de posición al usar la rueda (no sale en OBS: allí no hay rueda).
+    scrollIndicator: cfg.appearance.scrollIndicator,
   };
 }
 
@@ -234,6 +236,7 @@ function chatStyle() {
     needs: cfg.sources.twitch.useAccount ? "login" : "channel",
     twoLines: a.twoLines,
     showPlatform: a.showPlatform,
+    showTime: a.showTime,
   };
 }
 

@@ -118,6 +118,8 @@ test/config.test.js       Tests de config (node --test)
 - **Indicador de plataformas** (`#platforms` en chat.html, arriba a la derecha; sale también en OBS): un icono por plataforma con canales configurados (`style.channels`), altura 0,75em (≤ una letra del chat, escala con el texto) y punto con el peor estado de sus canales (`SEVERITY`: error 🔴 > desconectado/conectando 🟡 > sin directo ⚪ > conectado 🟢). Tooltip CSS (`:hover`) con el estado de cada canal. Sin canales de una plataforma, no hay icono.
 - **El estado de conexión solo se muestra en los iconos de arriba** (y su tooltip). Ya no hay avisos de estado entre los mensajes ni panel de "esperando mensajes" (se quitaron por redundantes). `SourceManager.snapshot()` sigue incluyendo el último estado de cada canal para reenviarlo al recargar. Sin canales configurados se mantiene el aviso `#empty` ("clic derecho → Configuración…"), porque entonces no hay iconos.
 - `twoLines` (true por defecto): texto debajo del nombre. En el chat propio es la clase `twolines`; en SSN añade `&twolines`. Al importar una URL de SSN sin ese parámetro se conserva la preferencia (igual que `hideMenu`).
+- `showTime` (true por defecto, solo chat propio: `.native-only` en Configuración): hora de envío (`ev.ts`) al principio de `.meta` (`span.time`, `Intl.DateTimeFormat("es-ES")` HH:MM, tooltip con fecha completa). Se oculta con la clase `notime` sin volver a pintar. SSN no recibe nada.
+- `scrollIndicator` (true por defecto): indicador de posición al usar la rueda. Lo pinta el **preload** (sección 6, frame principal), así vale en modo plataformas y en SSN sin tocar su maquetación: busca el antepasado con scroll bajo el ratón (o el documento), pone un carril fijo de 4 px a su derecha y se desvanece 1,2 s tras la última rueda. Estado vía `pageState().scrollIndicator`. No sale en OBS (sin preload ni rueda). La barra nativa sigue oculta con `hideScrollbar`.
 - `showPlatform` (true por defecto): icono de la plataforma delante del nombre (`ui/platforms/<plataforma>.svg`, mapa `PLATFORMS` en chat.js). Se oculta con la clase `noplatform` sin volver a pintar. En SSN, si es false se añade `&hidesource` (SSN muestra los iconos de origen por defecto). **Al añadir una plataforma**: su SVG en `ui/platforms/` y su entrada en `PLATFORMS`.
 - En modo SSN, cambiar opciones que van en la URL recarga el dock y **SSN pierde los mensajes** (no tiene historial): es inevitable. En modo plataformas el aspecto se aplica sin recargar (comprobado).
 
@@ -198,7 +200,8 @@ Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm
 
 ## Estado actual
 
-- 🚧 Rama `arrastre` (v0.9.1): Shift + arrastrar (KDE probado por el usuario), botón 📌 en la webcam, botón 🎥 en el chat, permiso de cámara en macOS. Probado: Linux (cámara simulada), Windows VM (webcam, 📌, 🎥, Shift mueve sin Snap, arrastre normal), macOS en CI (webcam con cámara simulada, app sigue abierta). PR abierta; pendiente: fusionar y release.
+- ✅ v0.10.0 (rama `hora`): hora de cada mensaje e indicador de posición al usar la rueda. El usuario pidió hacerlo todo (PR, fusionar y publicar) de una vez.
+- ✅ v0.9.1 (rama `arrastre`): Shift + arrastrar (KDE), botón 📌 en la webcam, botón 🎥 en el chat, permiso de cámara en macOS. Fusionada y publicada.
 - 🚧 Rama `webcam` (v0.9.0, parte de `licencia`): ventana de webcam. Probado con la cámara simulada (lista con nombres, vídeo 1920×1080, espejo, marco, permisos). Pendiente: prueba del usuario con la cámara virtual de OBS, PR y release.
 
 - ✅ v0.8.0 (macOS) fusionada y publicada en Forgejo y GitHub con los 10 paquetes.
