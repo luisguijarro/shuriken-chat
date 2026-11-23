@@ -9,7 +9,7 @@ const STICK_PX = 40; // si estás a menos de esto del final, el chat sigue bajan
 const list = document.getElementById("messages");
 const empty = document.getElementById("empty");
 let style = {
-  darkMode: true, bubble: true, textGlow: false, randomColor: true, fadedTop: true, twoLines: true, showPlatform: true,
+  darkMode: true, bubble: true, textGlow: false, randomColor: true, fadedTop: true, twoLines: true, showPlatform: true, showTime: true,
   scale: 1, sidePadding: 0, channels: [],
 };
 const statuses = new Map(); // "plataforma:canal" -> último estado de conexión
@@ -132,8 +132,17 @@ function platformIcon(platform) {
   return img;
 }
 
+const TIME_FMT = new Intl.DateTimeFormat("es-ES", { hour: "2-digit", minute: "2-digit" });
+
 function renderMeta(ev, color) {
   const meta = el("span", "meta");
+  // Hora de envío (se oculta con la clase "notime", sin volver a pintar).
+  const ts = Number(ev.ts);
+  if (ts > 0) {
+    const time = el("span", "time", TIME_FMT.format(new Date(ts)));
+    time.title = new Date(ts).toLocaleString("es-ES");
+    meta.append(time);
+  }
   const icon = platformIcon(ev.platform);
   if (icon) meta.append(icon);
   for (const b of ev.badges || []) {
@@ -394,6 +403,7 @@ function applyStyle(s) {
   root.toggle("faded", !!style.fadedTop);
   root.toggle("twolines", !!style.twoLines);
   root.toggle("noplatform", !style.showPlatform);
+  root.toggle("notime", style.showTime === false);
   document.documentElement.style.setProperty("--scale", String(style.scale || 1));
   document.documentElement.style.setProperty("--side", `${style.sidePadding || 0}px`);
   empty.hidden = (style.channels || []).length > 0;

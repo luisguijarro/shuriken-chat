@@ -324,3 +324,93 @@ if (window.top === window) {
   }, true);
   window.addEventListener("blur", () => nativeDrag(false));
 }
+
+// ---------- 6. Indicador de posición al usar la rueda (solo el frame principal) ----------
+// La barra de desplazamiento va oculta (no sale en el directo); al mover la rueda aparece
+// un indicador fino a la derecha de la zona que se desplaza, para saber por dónde vas, y
+// se desvanece al parar. No ocupa sitio ni cambia la maquetación (ni la de SSN), y en OBS
+// no existe (allí no hay preload ni rueda). Estilos en línea (CSSOM): valen con la CSP de SSN.
+if (window.top === window) {
+  const HIDE_MS = 1200;
+  let enabled = true;
+  let rail = null;
+  let thumb = null;
+  let target = null; // elemento que se desplaza (o el documento)
+  let hideTimer = null;
+
+  const apply = (s) => {
+    enabled = !s || s.scrollIndicator !== false;
+    if (!enabled) hide(true);
+  };
+  ipcRenderer.on("shuriken:state", (_e, s) => apply(s));
+  ipcRenderer.invoke("shuriken:page-state").then(apply).catch(() => {});
+
+  const docScroller = () => document.scrollingElement || document.documentElement;
+  const scrollable = (el) => el && el.scrollHeight - el.clientHeight > 1;
+
+  /** Lo que se desplaza bajo el ratón: el primer antepasado con scroll, o el documento. */
+  function findTarget(node) {
+    for (let el = node instanceof Element ? node : node && node.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      const oy = getComputedStyle(el).overflowY;
+      if ((oy === "auto" || oy === "scroll" || oy === "overlay") && scrollable(el)) return el;
+    }
+    const doc = docScroller();
+    return scrollable(doc) ? doc : null;
+  }
+
+  function build() {
+    rail = document.createElement("div");
+    rail.id = "shuriken-scroll";
+    Object.assign(rail.style, {
+      position: "fixed", width: "4px", borderRadius: "2px", zIndex: "2147483644", pointerEvents: "none",
+      background: "rgba(255,255,255,.14)", boxShadow: "0 0 3px rgba(0,0,0,.45)", opacity: "0", transition: "opacity .25s",
+    });
+    thumb = document.createElement("div");
+    Object.assign(thumb.style, {
+      position: "absolute", left: "0", width: "100%", borderRadius: "2px", background: "rgba(255,255,255,.7)",
+    });
+    rail.append(thumb);
+  }
+
+  function draw() {
+    if (!rail || !target) return;
+    const isDoc = target === docScroller();
+    const r = isDoc ? { top: 0, bottom: innerHeight, right: innerWidth } : target.getBoundingClientRect();
+    const top = Math.max(0, r.top) + 4;
+    const height = Math.max(0, Math.min(innerHeight, r.bottom) - 4 - top);
+    const max = target.scrollHeight - target.clientHeight;
+    if (height < 16 || max <= 0) return hide(true);
+    const th = Math.max(16, (height * target.clientHeight) / target.scrollHeight);
+    Object.assign(rail.style, { top: `${top}px`, height: `${height}px`, left: `${Math.min(innerWidth, r.right) - 7}px` });
+    Object.assign(thumb.style, { height: `${th}px`, top: `${((height - th) * target.scrollTop) / max}px` });
+  }
+
+  function hide(now) {
+    clearTimeout(hideTimer);
+    if (!rail) return;
+    rail.style.opacity = "0";
+    if (now) target = null;
+  }
+
+  function show(t) {
+    if (!document.documentElement) return;
+    if (!rail) build();
+    if (!rail.isConnected) document.documentElement.append(rail);
+    target = t;
+    draw();
+    rail.style.opacity = "1";
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => hide(false), HIDE_MS);
+  }
+
+  document.addEventListener("wheel", (e) => {
+    if (!enabled || e.deltaY === 0) return;
+    const t = findTarget(e.target);
+    if (t) show(t);
+  }, { capture: true, passive: true });
+
+  // Mientras está visible, sigue el desplazamiento (también el suave, después de la rueda).
+  document.addEventListener("scroll", () => {
+    if (target && rail && rail.style.opacity === "1") draw();
+  }, { capture: true, passive: true });
+}

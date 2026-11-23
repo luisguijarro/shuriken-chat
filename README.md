@@ -48,13 +48,14 @@ Tiene dos modos (*Fuente del chat*):
 
 ### Características
 
-- 💬 **Twitch, Kick y YouTube en un solo chat**, cada mensaje con el icono de su plataforma.
+- 💬 **Twitch, Kick y YouTube en un solo chat**, cada mensaje con el icono de su plataforma y la **hora** a la que se envió.
 - 🎥 **También en OBS**, idéntico a la ventana del escritorio y con las mismas proporciones.
 - 📷 **Ventana de webcam** aparte, con el mismo borde y esquinas que el chat (ideal con la cámara virtual de OBS).
 - 😀 **Se ve como en cada plataforma**: emotes del canal (también los de suscriptor), **7TV, BTTV y FFZ**, insignias oficiales, colores de usuario, Super Chats con su color…
 - 🛡️ **Revisión del AutoMod de Twitch** desde el propio chat (con tu cuenta): el mensaje retenido no se muestra; al pasar el ratón lo ves y lo permites o deniegas.
 - 🟢 **Estado de cada plataforma** de un vistazo: iconos con un punto de color arriba a la derecha.
 - 🪟 **Sin bordes y transparente**, con **marco a tu gusto**: margen, borde con grosor y color, y esquinas redondeadas.
+- 🧭 **Indicador de posición** al usar la rueda del ratón: la barra de desplazamiento no se ve (ni en el directo), pero al subir por el chat aparece una fina a la derecha para saber por dónde vas.
 - 🖱️ **Arrastra para moverla**, estira los bordes para redimensionarla (se muestran sus medidas mientras lo haces).
 - 📌 **Siempre visible** sobre las demás ventanas (activado por defecto, con botón propio).
 - 🎨 **Todo se configura en la propia app**, con vista previa en directo.
@@ -215,9 +216,9 @@ Los cambios se ven **en directo**. Pulsa **Guardar** para conservarlos; con **De
 | Ventana | **Siempre visible** (se aplica al momento) |
 | Webcam | Mostrar la ventana de webcam, cámara (la virtual de OBS recomendada) y espejo |
 | OBS | Activar, URL para la fuente de navegador, tabla de tamaño y posición por lienzo, puerto y cambio de clave |
-| Aspecto del chat | Escala del texto, margen lateral, modo oscuro, burbujas, brillo en el texto, colores por usuario, difuminar mensajes antiguos, **texto debajo del nombre**, **icono de la plataforma** y ocultar la barra de controles de SSN |
+| Aspecto del chat | Escala del texto, margen lateral, modo oscuro, burbujas, brillo en el texto, colores por usuario, difuminar mensajes antiguos, **texto debajo del nombre**, **icono de la plataforma**, **hora de cada mensaje** y ocultar la barra de controles de SSN |
 | Marco de la ventana | Margen alrededor del chat, esquinas redondeadas, grosor, color y opacidad del borde |
-| Fondo y transparencia | Fondo transparente o color de fondo (*chroma*) con su opacidad, y opacidad de toda la ventana |
+| Fondo y transparencia | Fondo transparente o color de fondo (*chroma*) con su opacidad, opacidad de toda la ventana, ocultar la barra de desplazamiento e **indicador de posición al usar la rueda** |
 | Avanzado | Parámetros extra y página base de SSN, **CSS personalizado** y opciones de sistema (Wayland nativo, compatibilidad gráfica) |
 | URL generada *(SSN)* | La URL de SSN equivalente |
 

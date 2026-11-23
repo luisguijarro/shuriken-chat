@@ -31,6 +31,7 @@ const DEFAULT_APPEARANCE = {
   fadedTop: true,
   twoLines: true, // texto debajo del nombre (en SSN: &twolines)
   showPlatform: true, // icono de la plataforma en cada mensaje (en SSN: &hidesource si es false)
+  showTime: true, // hora de cada mensaje (solo en el chat propio)
   hideMenu: true, // SSN solo oculta su barra de controles sola dentro de OBS
   extraParams: "", // parámetros extra de SSN tal cual: a=1&b&c=texto
   // --- Lo siguiente no va en la URL: lo dibuja la app ---
@@ -41,6 +42,7 @@ const DEFAULT_APPEARANCE = {
   transparentBg: true,
   opacity: 1,
   hideScrollbar: true,
+  scrollIndicator: true, // indicador de posición mientras se usa la rueda del ratón (lo pinta el preload)
   customCss: "",
 };
 
