@@ -216,7 +216,7 @@ Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm
 
 ## Estado actual
 
-- 🚧 Rama `refactor` (v0.10.1): auditoría SOLID → registro de plataformas (ui/platforms.js + src/sources/platforms.js, `check_channel` único), main.js dividido en src/app/ (13 módulos sin ciclos), normalizadores compartidos con Configuración, tests de arquitectura. Sin cambios visibles. Probado: Linux (prueba completa automatizada), Windows VM con ratón real (arrastrar, redimensionar, menú, Configuración, atravesar clics + bandeja, botones). Pendiente: macOS en CI, PR y release.
+- 🚧 Rama `refactor` (v0.10.1): auditoría SOLID → registro de plataformas (ui/platforms.js + src/sources/platforms.js, `check_channel` único), main.js dividido en src/app/ (13 módulos sin ciclos), normalizadores compartidos con Configuración, tests de arquitectura. Sin cambios visibles. Probado: Linux (prueba completa automatizada), Windows VM con ratón real (arrastrar, redimensionar, menú, Configuración, atravesar clics + bandeja, botones). macOS en CI (44 tests, arranque y webcam). PR abierta; pendiente: fusionar y release.
 - ✅ v0.10.0 (rama `hora`): hora de cada mensaje e indicador de posición al usar la rueda. El usuario pidió hacerlo todo (PR, fusionar y publicar) de una vez.
 - ✅ v0.9.1 (rama `arrastre`): Shift + arrastrar (KDE), botón 📌 en la webcam, botón 🎥 en el chat, permiso de cámara en macOS. Fusionada y publicada.
 - 🚧 Rama `webcam` (v0.9.0, parte de `licencia`): ventana de webcam. Probado con la cámara simulada (lista con nombres, vídeo 1920×1080, espejo, marco, permisos). Pendiente: prueba del usuario con la cámara virtual de OBS, PR y release.
