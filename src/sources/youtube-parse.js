@@ -5,23 +5,8 @@
 
 const { tokenize } = require("./twitch-parse");
 
-/**
- * Normaliza lo que escribe el usuario a un objetivo:
- *  - "@canal" (handle)             -> "@canal"
- *  - URL de canal (@ o /channel/)  -> "@canal" | "channel/UC…"
- *  - URL de un directo concreto    -> "v:ID" (watch?v=, youtu.be/, /live/ID)
- */
-function normalizeYoutubeTarget(value) {
-  let s = String(value || "").trim();
-  if (!s) return null;
-  let m = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|live\/|shorts\/)|youtu\.be\/)([\w-]{11})(?![\w-])/i.exec(s);
-  if (m) return "v:" + m[1];
-  m = /youtube\.com\/channel\/(UC[\w-]{22})(?![\w-])/i.exec(s);
-  if (m) return "channel/" + m[1];
-  s = s.replace(/^https?:\/\/((www|m)\.)?youtube\.com\//i, "").split(/[/?#]/)[0];
-  if (!s.startsWith("@")) s = "@" + s;
-  return /^@[\w.-]{3,30}$/.test(s) ? s.toLowerCase() : null;
-}
+/** Objetivo de YouTube (definido en ui/platforms.js, compartido con Configuración). */
+const normalizeYoutubeTarget = require("../../ui/platforms.js").normalizeYoutube;
 
 /** Página donde YouTube indica el directo activo de un canal. */
 function liveUrl(target) {

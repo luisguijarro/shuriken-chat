@@ -15,11 +15,9 @@
 "use strict";
 
 const { EventEmitter } = require("events");
-const { TwitchSource } = require("./twitch");
 const { TwitchAssets } = require("./twitch-assets");
 const { TwitchEventSub } = require("./twitch-eventsub");
-const { KickSource } = require("./kick");
-const { YoutubeSource } = require("./youtube");
+const { PLATFORMS } = require("./platforms");
 
 const BACKLOG = 150; // mensajes que se reenvían si se recarga la página del chat
 
@@ -34,10 +32,13 @@ class SourceManager extends EventEmitter {
     if (twitchAuth) this.setAuth(twitchAuth);
     this.backlog = [];
     this.statuses = new Map(); // "plataforma:canal" -> último evento de estado
-    this.twitch = null;
-    this.kick = null;
-    this.youtube = null;
+    this.connectors = new Map(); // id de plataforma -> conector activo
     this.twitchAssets = new TwitchAssets();
+  }
+
+  /** Lo que reciben los conectores y el cálculo de canales de cada plataforma. */
+  get deps() {
+    return { twitchAssets: this.twitchAssets, twitchAuth: this.twitchAuth };
   }
 
   /** Sesión de Twitch: al iniciar o cerrar sesión se reaplica la configuración. */
@@ -46,52 +47,50 @@ class SourceManager extends EventEmitter {
     auth.on("change", () => this.lastSources && this.apply(this.lastSources));
   }
 
-  /**
-   * Canales de Twitch que se leen de verdad:
-   *  - con cuenta: el canal del usuario que ha iniciado sesión (ninguno si no ha iniciado sesión);
-   *  - sin cuenta: los escritos a mano.
-   */
-  twitchChannels(sources) {
+  /** Canales que se leen de verdad en una plataforma (ninguno en modo SSN). */
+  channels(platform, sources) {
     if (sources.mode !== "native") return [];
-    if (!sources.twitch.useAccount) return sources.twitch.channels;
-    const auth = this.twitchAuth;
-    return auth && auth.loggedIn && auth.session.login ? [auth.session.login.toLowerCase()] : [];
+    return platform.channels(sources, this.deps);
   }
 
-  /** Canales de Kick que se leen (siempre sin cuenta). */
-  kickChannels(sources) {
-    return sources.mode === "native" ? sources.kick.channels : [];
+  /** Canales de Twitch que se leen (con cuenta: el del usuario; sin cuenta: los escritos). */
+  twitchChannels(sources) {
+    return this.channels(PLATFORMS.find((p) => p.id === "twitch"), sources);
   }
 
-  /** Canales (o directos) de YouTube que se leen (siempre sin cuenta). */
-  youtubeChannels(sources) {
-    return sources.mode === "native" ? sources.youtube.channels : [];
-  }
-
-  /** Todos los canales activos, como { platform, channel } (para el panel de estado del chat). */
+  /** Todos los canales activos, como { platform, channel } (iconos de estado del chat). */
   allChannels(sources) {
-    return [
-      ...this.twitchChannels(sources).map((channel) => ({ platform: "twitch", channel })),
-      ...this.kickChannels(sources).map((channel) => ({ platform: "kick", channel })),
-      ...this.youtubeChannels(sources).map((channel) => ({ platform: "youtube", channel })),
-    ];
+    return PLATFORMS.flatMap((p) => this.channels(p, sources).map((channel) => ({ platform: p.id, channel })));
   }
 
   /** Aplica la configuración `sources`: arranca, actualiza o para conectores. */
   apply(sources) {
     this.lastSources = sources;
-    const channels = this.twitchChannels(sources);
-    if (channels.length) {
-      if (!this.twitch) {
-        this.twitch = new TwitchSource(this.twitchAssets);
-        this.twitch.on("event", (ev) => this.push(ev));
+    for (const p of PLATFORMS) {
+      const list = this.channels(p, sources);
+      let connector = this.connectors.get(p.id);
+      if (list.length) {
+        if (!connector) {
+          connector = p.create(this.deps);
+          connector.on("event", (ev) => this.push(ev));
+          this.connectors.set(p.id, connector);
+        }
+        connector.setChannels(list);
+      } else if (connector) {
+        connector.stop();
+        this.connectors.delete(p.id);
       }
-      this.twitch.setChannels(channels);
-    } else if (this.twitch) {
-      this.twitch.stop();
-      this.twitch = null;
     }
-    // Moderación (AutoMod): solo en el modo "con mi cuenta" y con sesión iniciada.
+    this.applyModeration(sources);
+    // Fuera los mensajes de canales que ya no seguimos.
+    const keep = new Set(this.allChannels(sources).map((c) => `${c.platform}:${c.channel}`));
+    this.backlog = this.backlog.filter((ev) => keep.has(`${ev.platform}:${ev.channel}`));
+    for (const k of [...this.statuses.keys()]) if (!keep.has(k)) this.statuses.delete(k);
+  }
+
+  /** AutoMod de Twitch: solo en el modo "con mi cuenta" y con sesión iniciada. */
+  applyModeration(sources) {
+    const channels = this.twitchChannels(sources);
     if (channels.length && sources.twitch.useAccount && this.twitchAuth && this.twitchAuth.loggedIn) {
       if (!this.eventsub) {
         this.eventsub = new TwitchEventSub(this.twitchAuth, this.twitchAssets);
@@ -107,34 +106,6 @@ class SourceManager extends EventEmitter {
       this.eventsub = null;
       this.moderation = {};
     }
-    // Kick
-    const kickChannels = this.kickChannels(sources);
-    if (kickChannels.length) {
-      if (!this.kick) {
-        this.kick = new KickSource();
-        this.kick.on("event", (ev) => this.push(ev));
-      }
-      this.kick.setChannels(kickChannels);
-    } else if (this.kick) {
-      this.kick.stop();
-      this.kick = null;
-    }
-    // YouTube
-    const ytChannels = this.youtubeChannels(sources);
-    if (ytChannels.length) {
-      if (!this.youtube) {
-        this.youtube = new YoutubeSource();
-        this.youtube.on("event", (ev) => this.push(ev));
-      }
-      this.youtube.setChannels(ytChannels);
-    } else if (this.youtube) {
-      this.youtube.stop();
-      this.youtube = null;
-    }
-    // Fuera los mensajes de canales que ya no seguimos.
-    const keep = new Set(this.allChannels(sources).map((c) => `${c.platform}:${c.channel}`));
-    this.backlog = this.backlog.filter((ev) => keep.has(`${ev.platform}:${ev.channel}`));
-    for (const k of [...this.statuses.keys()]) if (!keep.has(k)) this.statuses.delete(k);
   }
 
   /** Lo que necesita la página del chat al (re)cargarse. */
@@ -186,14 +157,10 @@ class SourceManager extends EventEmitter {
   }
 
   stop() {
-    if (this.twitch) this.twitch.stop();
-    this.twitch = null;
+    for (const connector of this.connectors.values()) connector.stop();
+    this.connectors.clear();
     if (this.eventsub) this.eventsub.stop();
     this.eventsub = null;
-    if (this.kick) this.kick.stop();
-    this.kick = null;
-    if (this.youtube) this.youtube.stop();
-    this.youtube = null;
   }
 }
 

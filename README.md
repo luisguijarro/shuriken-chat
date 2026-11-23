@@ -377,13 +377,14 @@ Para probar sin tocar tu configuración: `XDG_CONFIG_HOME=/tmp/prueba npm start`
 │          medidas, bloqueo de cámara/micrófono                            │
 └──────────────────────────────────────────────────────────────────────────┘
         ▲ estilo, CSS, mensajes                ▲ preview / save
-        └──────────── main.js ◀────────────────┴── Configuración (ui/settings.html)
-                     menú, bandeja, zoom, siempre visible, OBS
+        └────────── src/app/ ◀─────────────────┴── Configuración (ui/settings.html)
+               ventanas, menús, bandeja, OBS, IPC
 ```
 
 - **Electron** (Chromium): mismo motor que OBS, por eso el dock de SSN funciona tal cual.
 - Los **conectores** corren en el proceso principal y emiten eventos con un formato común. La misma página del chat los pinta en la ventana y en OBS.
 - El **marco** es una página propia y el chat va en una vista interior desplazada según el margen: así el chat (o SSN) ve un tamaño real y nada se descoloca.
+- **Añadir una plataforma** = su entrada en `ui/platforms.js` (nombre, cómo se escribe un canal), su conector en `src/sources/platforms.js`, su icono en `ui/platforms/` y su sección en Configuración. El gestor de fuentes, la configuración, la comprobación de canales y el chat la recogen solos (un test lo vigila).
 - La web de SSN corre **aislada**, sin acceso a la app más allá del menú y el arrastre.
 
 ### Estructura del proyecto
@@ -398,15 +399,19 @@ shuriken-chat/
 │   ├── settings.html/.css/.js    Ventana de Configuración
 │   ├── webcam.html/.js           Ventana de webcam
 │   ├── welcome.html              Pantalla inicial del modo SSN sin sesión
+│   ├── platforms.js              Registro de plataformas (nombre, canales válidos), común a la app y las páginas
 │   ├── platforms/                Iconos de las plataformas
 │   └── badges/                   Iconos propios de insignias (Kick, YouTube)
 ├── src/
-│   ├── main.js                   Ventanas, menús, bandeja, IPC, OBS
+│   ├── main.js                   Arranque
+│   ├── app/                      Proceso principal, un módulo por tarea: ventana del chat, webcam,
+│   │                             Configuración, menús y bandeja, arrastre, OBS, permisos, IPC
 │   ├── config.js                 Configuración y URL de SSN
 │   ├── obs-server.js             Servidor local para OBS
 │   ├── preload-chat.js           Script aislado de la ventana del chat
 │   ├── preload-settings.js       Puente de la ventana de Configuración
-│   └── sources/                  Conectores (Twitch, Kick, YouTube), emotes, insignias y sesión de Twitch
+│   └── sources/                  Conectores (Twitch, Kick, YouTube), registro de plataformas (platforms.js),
+│                                 emotes, insignias y sesión de Twitch
 ├── scripts/
 │   ├── start.js                  Lanzador de desarrollo (npm start)
 │   └── build.js                  Construcción de los paquetes (npm run build)

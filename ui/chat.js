@@ -116,11 +116,12 @@ function renderParts(parts) {
   return span;
 }
 
-const PLATFORMS = { twitch: "Twitch", kick: "Kick", youtube: "YouTube" }; // iconos en ui/platforms/<plataforma>.svg
+// Nombre de cada plataforma (ui/platforms.js; icono en ui/platforms/<plataforma>.svg).
+const PLATFORMS = Object.fromEntries(ShurikenPlatforms.list.map((p) => [p.id, p.name]));
 
-/** Cómo se nombra un canal en los avisos: "#canal" en Twitch, tal cual en el resto. */
+/** Cómo se nombra un canal en los avisos ("#canal" en Twitch, "el directo" en YouTube…). */
 const channelLabel = (platform, channel) =>
-  platform === "twitch" ? `#${channel}` : String(channel).startsWith("v:") ? "el directo" : channel;
+  ShurikenPlatforms.byId[platform] ? ShurikenPlatforms.byId[platform].label(channel) : String(channel);
 
 /** Icono de la plataforma de origen (se oculta con la opción, sin volver a pintar). */
 function platformIcon(platform) {
