@@ -9,9 +9,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const { normalizeChannel } = require("./sources/twitch-parse");
-const { normalizeKickChannel } = require("./sources/kick-parse");
-const { normalizeYoutubeTarget } = require("./sources/youtube-parse");
+const PLATFORMS = require("../ui/platforms.js");
 
 const DEFAULT_BASE_URL = "https://socialstream.ninja/dock.html";
 
@@ -55,18 +53,19 @@ const DEFAULT_APPEARANCE = {
 function normalizeSources(raw, appearance) {
   const s = obj(raw);
   const mode = s.mode === "ssn" || s.mode === "native" ? s.mode : appearance.session.trim() ? "ssn" : "native";
-  const list = Array.isArray(obj(s.twitch).channels) ? obj(s.twitch).channels : [];
-  const channels = [...new Set(list.map(normalizeChannel).filter(Boolean))];
-  // Client ID de la app de Twitch (solo para iniciar sesión; vacío = el incluido en la app).
+  // Cada plataforma: { channels: [...] } sin repetidos ni canales no válidos.
+  const out = { mode };
+  for (const p of PLATFORMS.list) {
+    const list = Array.isArray(obj(s[p.id]).channels) ? obj(s[p.id]).channels : [];
+    out[p.id] = { channels: [...new Set(list.map(p.normalize).filter(Boolean))] };
+  }
+  // Lo propio de Twitch. Client ID de la app de Twitch (solo para iniciar sesión; vacío = el incluido en la app).
   const clientId = String(obj(s.twitch).clientId || "").trim().replace(/[^a-z0-9]/gi, "").slice(0, 64);
   // Cómo se conecta Twitch: con la cuenta del usuario (su canal, + AutoMod) o sin cuenta
   // (canales escritos a mano). Por defecto, con cuenta, salvo que ya hubiera canales escritos.
-  const useAccount = typeof obj(s.twitch).useAccount === "boolean" ? obj(s.twitch).useAccount : !channels.length;
-  const kickList = Array.isArray(obj(s.kick).channels) ? obj(s.kick).channels : [];
-  const kick = { channels: [...new Set(kickList.map(normalizeKickChannel).filter(Boolean))] };
-  const ytList = Array.isArray(obj(s.youtube).channels) ? obj(s.youtube).channels : [];
-  const youtube = { channels: [...new Set(ytList.map(normalizeYoutubeTarget).filter(Boolean))] };
-  return { mode, twitch: { useAccount, channels, clientId }, kick, youtube };
+  const useAccount = typeof obj(s.twitch).useAccount === "boolean" ? obj(s.twitch).useAccount : !out.twitch.channels.length;
+  out.twitch = { useAccount, channels: out.twitch.channels, clientId };
+  return out;
 }
 
 /** Opciones que requieren reiniciar la app. */
@@ -178,12 +177,10 @@ function save(config) {
 /** Lo que edita la ventana de ajustes. */
 function userSettings(config) {
   return {
-    sources: {
-      mode: config.sources.mode,
-      twitch: { ...config.sources.twitch, channels: [...config.sources.twitch.channels] },
-      kick: { channels: [...config.sources.kick.channels] },
-      youtube: { channels: [...config.sources.youtube.channels] },
-    },
+    sources: Object.fromEntries([
+      ["mode", config.sources.mode],
+      ...PLATFORMS.list.map((p) => [p.id, { ...config.sources[p.id], channels: [...config.sources[p.id].channels] }]),
+    ]),
     appearance: { ...config.appearance },
     system: { ...config.system },
     obs: { enabled: config.obs.enabled, port: config.obs.port }, // la clave no se edita en el formulario

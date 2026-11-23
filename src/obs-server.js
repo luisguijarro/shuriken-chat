@@ -10,7 +10,7 @@ const path = require("path");
 const crypto = require("crypto");
 
 // Ficheros de ui/ que puede pedir OBS (nada más).
-const STATIC = /^\/(chat\.html|chat\.css|chat\.js|obs-bridge\.js|obs\.js|welcome\.html|icon\.svg|platforms\/[a-z]+\.svg|badges\/[a-z]+\/[a-z-]+\.svg)$/;
+const STATIC = /^\/(chat\.html|chat\.css|chat\.js|obs-bridge\.js|obs\.js|platforms\.js|welcome\.html|icon\.svg|platforms\/[a-z]+\.svg|badges\/[a-z]+\/[a-z-]+\.svg)$/;
 const TYPES = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml" };
 const KEEPALIVE_MS = 20000;
 

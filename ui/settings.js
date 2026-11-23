@@ -52,8 +52,8 @@ const getChroma = () => getRgba("chroma");
  * comprobación de que el canal existe (y si está en directo).
  */
 class ChannelList {
-  constructor({ id, platform, prefix, normalize, invalidMsg, checkCmd }) {
-    Object.assign(this, { platform, prefix, normalize, invalidMsg, checkCmd });
+  constructor({ id, platform, prefix, normalize, invalidMsg }) {
+    Object.assign(this, { id, platform, prefix, normalize, invalidMsg });
     this.input = $(id + "Input");
     this.list = $(id + "List");
     this.msgId = id + "Msg";
@@ -80,7 +80,7 @@ class ChannelList {
     if (this.info.has(c)) return this.info.get(c);
     let info;
     try {
-      info = await invoke(this.checkCmd, { channel: c });
+      info = await invoke("check_channel", { platform: this.id, channel: c });
     } catch {
       info = { exists: null };
     }
@@ -139,47 +139,14 @@ class ChannelList {
   }
 }
 
-/** Igual que normalizeChannel en src/sources/twitch-parse.js. */
-function normalizeTwitch(value) {
-  let c = String(value || "").trim().toLowerCase();
-  c = c.replace(/^https?:\/\/(www\.|m\.)?twitch\.tv\//, "").replace(/^[#@]/, "");
-  c = c.split(/[/?#]/)[0];
-  return /^[a-z0-9_]{1,25}$/.test(c) ? c : null;
-}
-
-/** Igual que normalizeKickChannel en src/sources/kick-parse.js. */
-function normalizeKick(value) {
-  let c = String(value || "").trim().toLowerCase();
-  c = c.replace(/^https?:\/\/(www\.)?kick\.com\//, "").replace(/^popout\//, "").replace(/^@/, "");
-  c = c.split(/[/?#]/)[0].replace(/_/g, "-");
-  return /^[a-z0-9][a-z0-9-]{1,39}$/.test(c) ? c : null;
-}
-
-/** Igual que normalizeYoutubeTarget en src/sources/youtube-parse.js. */
-function normalizeYoutube(value) {
-  let s = String(value || "").trim();
-  if (!s) return null;
-  let m = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|live\/|shorts\/)|youtu\.be\/)([\w-]{11})(?![\w-])/i.exec(s);
-  if (m) return "v:" + m[1];
-  m = /youtube\.com\/channel\/(UC[\w-]{22})(?![\w-])/i.exec(s);
-  if (m) return "channel/" + m[1];
-  s = s.replace(/^https?:\/\/((www|m)\.)?youtube\.com\//i, "").split(/[/?#]/)[0];
-  if (!s.startsWith("@")) s = "@" + s;
-  return /^@[\w.-]{3,30}$/.test(s) ? s.toLowerCase() : null;
-}
-
-const twitchList = new ChannelList({
-  id: "twitch", platform: "Twitch", prefix: "#", normalize: normalizeTwitch, checkCmd: "check_twitch_channel",
-  invalidMsg: "Nombre no válido: solo letras, números y _ (máx. 25).",
-});
-const youtubeList = new ChannelList({
-  id: "youtube", platform: "YouTube", prefix: "", normalize: normalizeYoutube, checkCmd: "check_youtube_channel",
-  invalidMsg: "No válido: escribe @canal o pega la URL del canal o del directo.",
-});
-const kickList = new ChannelList({
-  id: "kick", platform: "Kick", prefix: "", normalize: normalizeKick, checkCmd: "check_kick_channel",
-  invalidMsg: "Nombre no válido: solo letras, números, _ y - (o pega la URL del canal).",
-});
+// Una lista de canales por plataforma, con los datos de ui/platforms.js (el mismo
+// normalizador que usa la app: lo que se acepta aquí es lo que lee el conector).
+const channelLists = Object.fromEntries(
+  ShurikenPlatforms.list.map((p) => [p.id, new ChannelList({
+    id: p.id, platform: p.name, prefix: p.prefix, normalize: p.normalize, invalidMsg: p.invalidMsg,
+  })]),
+);
+const twitchList = channelLists.twitch;
 
 const getMode = () => (document.querySelector('input[name="mode"]:checked') || {}).value || "native";
 const getTwitchMode = () => (document.querySelector('input[name="twitchMode"]:checked') || {}).value || "account";
@@ -405,9 +372,7 @@ function fill(view) {
   // Opciones que solo tienen sentido en Linux (Wayland/X11).
   document.body.classList.toggle("not-linux", view.platform && view.platform !== "linux");
   setTwitchMode(view.sources.twitch.useAccount ? "account" : "anonymous");
-  twitchList.set(view.sources.twitch.channels);
-  kickList.set(view.sources.kick.channels);
-  youtubeList.set(view.sources.youtube.channels);
+  for (const [id, list] of Object.entries(channelLists)) list.set(view.sources[id].channels);
   $("twitchClientId").value = view.sources.twitch.clientId || "";
   $("session").value = a.session;
   ensureOption($("language"), a.language);
@@ -448,13 +413,13 @@ function collect() {
   return {
     sources: {
       mode: getMode(),
+      ...Object.fromEntries(Object.entries(channelLists).map(([id, list]) => [id, { channels: [...list.channels] }])),
+      // Lo propio de Twitch.
       twitch: {
         useAccount: getTwitchMode() === "account",
         channels: [...twitchList.channels],
         clientId: $("twitchClientId").value.trim(),
       },
-      kick: { channels: [...kickList.channels] },
-      youtube: { channels: [...youtubeList.channels] },
     },
     appearance: {
       baseUrl: $("baseUrl").value.trim(),

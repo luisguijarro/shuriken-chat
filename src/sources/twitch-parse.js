@@ -2,13 +2,8 @@
 // Parser de IRC, troceado de mensajes en texto/emotes/enlaces e insignias.
 "use strict";
 
-/** Nombre de canal válido a partir de "Canal", "#canal", "@canal" o una URL de twitch.tv. */
-function normalizeChannel(value) {
-  let c = String(value || "").trim().toLowerCase();
-  c = c.replace(/^https?:\/\/(www\.|m\.)?twitch\.tv\//, "").replace(/^[#@]/, "");
-  c = c.split(/[/?#]/)[0];
-  return /^[a-z0-9_]{1,25}$/.test(c) ? c : null;
-}
+/** Canal de Twitch normalizado (definido en ui/platforms.js, compartido con Configuración). */
+const normalizeChannel = require("../../ui/platforms.js").normalizeTwitch;
 
 const TAG_ESCAPES = { ":": ";", s: " ", "\\": "\\", r: "\r", n: "\n" };
 

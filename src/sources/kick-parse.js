@@ -3,16 +3,8 @@
 
 const { tokenize } = require("./twitch-parse");
 
-/**
- * Nombre de canal de Kick ("slug") a partir de "Canal", "@canal" o una URL de kick.com.
- * En la URL de Kick los "_" del nombre de usuario se escriben como "-".
- */
-function normalizeKickChannel(value) {
-  let c = String(value || "").trim().toLowerCase();
-  c = c.replace(/^https?:\/\/(www\.)?kick\.com\//, "").replace(/^popout\//, "").replace(/^@/, "");
-  c = c.split(/[/?#]/)[0].replace(/_/g, "-");
-  return /^[a-z0-9][a-z0-9-]{1,39}$/.test(c) ? c : null;
-}
+/** Slug del canal de Kick (definido en ui/platforms.js, compartido con Configuración). */
+const normalizeKickChannel = require("../../ui/platforms.js").normalizeKick;
 
 const kickEmoteUrl = (id) => `https://files.kick.com/emotes/${encodeURIComponent(id)}/fullsize`;
 const EMOTE_RE = /\[emote:(\d+):([^\]]*)\]/g;

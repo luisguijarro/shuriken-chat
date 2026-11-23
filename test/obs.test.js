@@ -43,6 +43,7 @@ test("servidor de OBS: clave, ficheros permitidos y datos en directo", async () 
     // Los mismos ficheros del chat de la app, y nada más.
     assert.strictEqual((await get("/chat.js")).status, 200);
     assert.strictEqual((await get("/platforms/twitch.svg")).status, 200);
+    assert.strictEqual((await get("/platforms.js")).status, 200, "el registro de plataformas lo usa chat.js");
     assert.strictEqual((await get("/badges/kick/moderator.svg")).status, 200);
     assert.strictEqual((await get("/settings.html")).status, 404);
     assert.strictEqual((await get("/../src/main.js")).status, 404);
