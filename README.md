@@ -55,6 +55,7 @@ Tiene dos modos (*Fuente del chat*):
 - 🛡️ **Revisión del AutoMod de Twitch** desde el propio chat (con tu cuenta): el mensaje retenido no se muestra; al pasar el ratón lo ves y lo permites o deniegas.
 - 🟢 **Estado de cada plataforma** de un vistazo: iconos con un punto de color arriba a la derecha.
 - 🪟 **Sin bordes y transparente**, con **marco a tu gusto**: margen, borde con grosor y color, y esquinas redondeadas.
+- 🔗 **Enlaces clicables** aunque no lleven `https://`: `darkdolmen.com`, `www.darkdolmen.com` o `twitch.tv/canal` se abren en tu navegador.
 - 🧭 **Indicador de posición** al usar la rueda del ratón: la barra de desplazamiento no se ve (ni en el directo), pero al subir por el chat aparece una fina a la derecha para saber por dónde vas.
 - 🖱️ **Arrastra para moverla**, estira los bordes para redimensionarla (se muestran sus medidas mientras lo haces).
 - 📌 **Siempre visible** sobre las demás ventanas (activado por defecto, con botón propio).

@@ -64,7 +64,7 @@ function parseEmotesTag(tag) {
 }
 
 const twitchEmoteUrl = (id) => `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(id)}/default/dark/2.0`;
-const URL_RE = /^https?:\/\/[^\s<>"']+$/i;
+const { findLink } = require("./links");
 
 /**
  * Trocea un mensaje en partes para el render:
@@ -91,8 +91,15 @@ function tokenize(text, emotesTag, lookup = () => null) {
       }
       const e = lookup(w);
       if (e) parts.push({ type: "emote", name: w, url: e.url, ...(e.zeroWidth ? { zeroWidth: true } : {}) });
-      else if (URL_RE.test(w)) parts.push({ type: "link", text: w, url: w });
-      else pushText(w);
+      else {
+        const link = findLink(w); // con o sin http(s)://, y sin la puntuación pegada
+        if (!link) pushText(w);
+        else {
+          pushText(link.before);
+          parts.push({ type: "link", text: link.text, url: link.url });
+          pushText(link.after);
+        }
+      }
     }
   };
 
