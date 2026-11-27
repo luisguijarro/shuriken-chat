@@ -75,7 +75,8 @@ src/preload-chat.js       Preload aislado del chat: bloqueo de multimedia, clic 
 src/preload-settings.js   Expone window.shuriken.invoke(cmd, args) a settings.js (lista blanca de comandos)
 src/sources/index.js      SourceManager: arranca/para conectores según config, backlog (150), formato de eventos normalizado (documentado ahí)
 src/sources/twitch.js     Conector de Twitch: IRC por WebSocket anónimo (justinfan), reconexión con backoff, cola por canal
-src/sources/twitch-parse.js  Puro y testeado: parseIrc, normalizeChannel, tokenize (texto/emotes/enlaces), insignias
+src/sources/twitch-parse.js  Puro y testeado: parseIrc, normalizeChannel, tokenize (texto/emotes/enlaces; lo usan TODAS las plataformas), insignias
+src/sources/links.js         Puro y testeado: findLink (enlaces con o sin http(s)://, www., dominio pelado; puntuación pegada fuera)
 src/sources/twitch-assets.js Emotes 7TV/BTTV/FFZ (canal + globales) e insignias (IVR), APIs públicas sin auth
 src/sources/twitch-auth.js   Sesión opcional de Twitch: device code flow (cliente público), tokens cifrados, refresh, Helix
 src/sources/twitch-eventsub.js EventSub por WebSocket: AutoMod (automod.message.hold/update v2) y aprobar/denegar
@@ -123,6 +124,7 @@ test/config.test.js       Tests de config (node --test)
 ## Chat propio (modo plataformas)
 
 - Los conectores corren en el **proceso principal** (Node 24 de Electron: `WebSocket` y `fetch` globales; sin CORS) y emiten eventos normalizados. `main.js` los reenvía a la vista del chat (`shuriken:chat-event`); al cargar la página se mandan el estilo (`shuriken:chat-style`) y el backlog (`shuriken:chat-backlog`). El puente `window.shurikenChat` solo se expone en `ui/chat.html` (nunca en la web de SSN).
+- **Enlaces** (`links.js`, desde `tokenize`): `http(s)://…`, `www.…` (cualquier terminación) y dominios sin nada delante solo si la terminación es un dominio de país real (`COUNTRY_TLDS`) o un genérico habitual (`GENERIC_TLDS`): así `main.js`, `fichero.txt`, `v1.2` o `e.g.` no son enlaces. Sin protocolo se abre con `https://`. Solo ASCII (evita dominios que imitan a otros), sin `@` (correos). La puntuación pegada (`(…).`, `¿…?`) queda fuera, salvo un `)` que cierra uno de la URL. Los emotes tienen prioridad sobre los enlaces.
 - **Seguridad del render**: todo lo que escriben los usuarios se inserta con `textContent`/nodos de texto, nunca `innerHTML`. Enlaces e imágenes solo http(s). CSP estricta en chat.html.
 - **Twitch**: lectura anónima, sin cuenta ni claves. Emotes nativos (incluidos los de suscriptor del canal) por posición del tag `emotes` — **posiciones en caracteres Unicode, no UTF-16** (`Array.from`). Emotes de terceros por palabra: prioridad canal > global y 7TV > BTTV > FFZ. Zero-width: 7TV `flags & 1` o `data.flags & 256`; BTTV lista fija; FFZ `modifier`. Insignias con imágenes oficiales vía `api.ivr.fi/v2/twitch/badges/{global,channel?login=}`. El `room-id` (de ROOMSTATE) dispara la carga de emotes/insignias del canal.
 - Los mensajes de cada canal se **encolan hasta que sus emotes están cargados** (máx. 4 s, `whenReady`) para que los primeros no salgan sin emotes; borrados/baneos van por la misma cola para no adelantarse.
@@ -216,7 +218,8 @@ Para probar sin tocar la config del usuario: `XDG_CONFIG_HOME=<dir temporal> npm
 
 ## Estado actual
 
-- 🚧 Rama `refactor` (v0.10.1): auditoría SOLID → registro de plataformas (ui/platforms.js + src/sources/platforms.js, `check_channel` único), main.js dividido en src/app/ (13 módulos sin ciclos), normalizadores compartidos con Configuración, tests de arquitectura. Sin cambios visibles. Probado: Linux (prueba completa automatizada), Windows VM con ratón real (arrastrar, redimensionar, menú, Configuración, atravesar clics + bandeja, botones). macOS en CI (44 tests, arranque y webcam). PR abierta; pendiente: fusionar y release.
+- 🚧 Rama `enlaces` (v0.11.0): enlaces sin `http(s)://` clicables (`links.js`). Probado con tests y en la app (render, clic → navegador). Pendiente: PR y release.
+- ✅ v0.10.1 (rama `refactor`, fusionada y publicada): auditoría SOLID → registro de plataformas (ui/platforms.js + src/sources/platforms.js, `check_channel` único), main.js dividido en src/app/ (13 módulos sin ciclos), normalizadores compartidos con Configuración, tests de arquitectura. Sin cambios visibles. Probado en Linux, Windows VM con ratón real y macOS en CI.
 - ✅ v0.10.0 (rama `hora`): hora de cada mensaje e indicador de posición al usar la rueda. El usuario pidió hacerlo todo (PR, fusionar y publicar) de una vez.
 - ✅ v0.9.1 (rama `arrastre`): Shift + arrastrar (KDE), botón 📌 en la webcam, botón 🎥 en el chat, permiso de cámara en macOS. Fusionada y publicada.
 - 🚧 Rama `webcam` (v0.9.0, parte de `licencia`): ventana de webcam. Probado con la cámara simulada (lista con nombres, vídeo 1920×1080, espejo, marco, permisos). Pendiente: prueba del usuario con la cámara virtual de OBS, PR y release.
